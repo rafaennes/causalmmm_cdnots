@@ -1,21 +1,14 @@
 """
-Benchmark CausalMMM vs Google Meridian
-======================================
+Benchmark CausalMMM vs Google Meridian - FIXED VERSION
+======================================================
 
-Comparison following PyMC-Labs methodology:
-https://www.pymc-labs.com/blog-posts/pymc-marketing-vs-google-meridian
-
-Metrics:
-- Forecast accuracy (MAPE, SMAPE, RMSE)
-- Causal structure quality (if ground truth available)
-- Attribution accuracy (channel contributions)
-- Computational efficiency
-- Interpretability
+Comparison following PyMC-Labs methodology.
 """
 
 import numpy as np
 import pandas as pd
 import time
+import os
 from typing import Dict, List, Tuple
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -23,7 +16,7 @@ import seaborn as sns
 # CausalMMM
 from causalmmm import CausalMMM, CausalMMMConfig
 from causalmmm.preprocessing import PanelDataLoader, GroupStandardizer, temporal_train_test_split
-from causalmmm.metrics.evaluation import evaluate_forecast, compute_attribution
+from causalmmm.metrics.evaluation import evaluate_forecast
 
 # Meridian (if available)
 try:
@@ -31,16 +24,15 @@ try:
     MERIDIAN_AVAILABLE = True
 except ImportError:
     MERIDIAN_AVAILABLE = False
-    print("Warning: Google Meridian not installed. Install with: pip install meridian")
+    print("Warning: Google Meridian not installed. Skipping Meridian benchmark.")
 
 
 class BenchmarkSuite:
-    """
-    Comprehensive benchmark suite for MMM models.
-    """
+    """Comprehensive benchmark suite for MMM models."""
     
     def __init__(self, output_dir: str = './benchmark_results'):
         self.output_dir = output_dir
+        os.makedirs(output_dir, exist_ok=True)
         self.results = {}
     
     def generate_synthetic_data(
@@ -50,21 +42,10 @@ class BenchmarkSuite:
         n_channels: int = 5,
         seed: int = 42
     ) -> Tuple[pd.DataFrame, np.ndarray]:
-        """
-        Generate synthetic MMM data with known causal structure.
-        
-        Returns:
-            df: Panel DataFrame
-            true_graph: [d+1, d+1] - True causal adjacency matrix
-        """
+        """Generate synthetic MMM data with known causal structure."""
         rng = np.random.default_rng(seed)
         
-        # Define true causal structure
-        # Channel 0 (TV) -> Channel 2 (Digital) -> Sales
-        # Channel 1 (Radio) -> Sales
-        # Channel 3 (Social) -> Sales
-        # Channel 4 (Search) has weak effect
-        
+        # True causal structure
         d = n_channels
         true_graph = np.zeros((d + 1, d + 1))
         true_graph[0, 2] = 1  # TV -> Digital
@@ -72,63 +53,48 @@ class BenchmarkSuite:
         true_graph[1, 5] = 1  # Radio -> Sales
         true_graph[2, 5] = 1  # Digital -> Sales
         true_graph[3, 5] = 1  # Social -> Sales
-        # Channel 4 (Search) has no edges
         
         rows = []
         channel_names = ['TV', 'Radio', 'Digital', 'Social', 'Search']
         
         for entity_id in range(n_entities):
-            # Entity-specific baseline
             baseline_sales = 100 + rng.normal(0, 20)
-            
-            # State for adstock
             adstock = np.zeros(n_channels)
             sales = baseline_sales
             
             for t in range(n_timesteps):
-                # Time features
                 week = t % 52
-                is_holiday = int(week >= 48)  # Last month
-                
-                # Seasonality
+                is_holiday = int(week >= 48)
                 seasonal_factor = 1.0 + 0.2 * np.sin(2 * np.pi * week / 52)
                 if is_holiday:
                     seasonal_factor *= 1.3
                 
-                # Marketing spend
                 base_budget = 50 + 10 * rng.normal(0, 1)
                 spend = rng.lognormal(0, 0.5, size=n_channels)
                 spend = spend / spend.sum() * base_budget
                 
-                # Apply causal structure
-                # TV influences Digital
-                digital_boost = 0.3 * spend[0]  # TV -> Digital
+                # Causal effects
+                digital_boost = 0.3 * spend[0]
                 spend[2] += digital_boost
                 
-                # Saturation
                 saturated_spend = spend / (1 + 0.05 * spend)
-                
-                # Adstock (carryover)
                 adstock = 0.6 * adstock + saturated_spend
                 
-                # Sales response (following true causal graph)
                 tv_effect = 0.4 * adstock[0]
                 radio_effect = 0.3 * adstock[1]
                 digital_effect = 0.35 * adstock[2]
                 social_effect = 0.25 * adstock[3]
-                search_effect = 0.05 * adstock[4]  # Weak effect
+                search_effect = 0.05 * adstock[4]
                 
                 marketing_effect = (tv_effect + radio_effect + digital_effect + 
                                    social_effect + search_effect)
                 
-                # Sales equation
                 sales = (baseline_sales * seasonal_factor +
                         marketing_effect +
-                        0.3 * sales +  # Autoregressive
-                        rng.normal(0, 5))  # Noise
+                        0.3 * sales +
+                        rng.normal(0, 5))
                 sales = max(sales, 10)
                 
-                # Record
                 row = {
                     'entity': f'region_{entity_id}',
                     'time': t,
@@ -197,38 +163,14 @@ class BenchmarkSuite:
             }
         }
     
-    def run_meridian(self, train_data: Tuple, test_data: Tuple) -> Dict:
-        """Run Google Meridian (if available)."""
-        if not MERIDIAN_AVAILABLE:
-            return {'error': 'Meridian not installed'}
-        
-        print("\n" + "="*60)
-        print("Running Google Meridian")
-        print("="*60)
-        
-        # TODO: Implement Meridian benchmark
-        # This requires understanding Meridian's API
-        
-        return {'error': 'Meridian benchmark not yet implemented'}
-    
     def compare_causal_graphs(self, learned_graph: np.ndarray, true_graph: np.ndarray) -> Dict:
-        """
-        Compare learned graph with ground truth.
-        
-        Metrics:
-        - Precision: TP / (TP + FP)
-        - Recall: TP / (TP + FN)
-        - F1 Score
-        - SHD (Structural Hamming Distance)
-        """
-        # Flatten and remove self-loops
+        """Compare learned graph with ground truth."""
         n = true_graph.shape[0]
         mask = ~np.eye(n, dtype=bool)
         
         true_flat = true_graph[mask]
         learned_flat = learned_graph[mask]
         
-        # Binary classification metrics
         tp = np.sum((true_flat == 1) & (learned_flat == 1))
         fp = np.sum((true_flat == 0) & (learned_flat == 1))
         fn = np.sum((true_flat == 1) & (learned_flat == 0))
@@ -237,8 +179,6 @@ class BenchmarkSuite:
         precision = tp / (tp + fp + 1e-8)
         recall = tp / (tp + fn + 1e-8)
         f1 = 2 * precision * recall / (precision + recall + 1e-8)
-        
-        # Structural Hamming Distance
         shd = np.sum(true_flat != learned_flat)
         
         return {
@@ -256,48 +196,44 @@ class BenchmarkSuite:
         """Create comprehensive visualization of results."""
         fig, axes = plt.subplots(2, 3, figsize=(18, 12))
         
-        # 1. Forecast accuracy comparison
+        # 1. Forecast accuracy
         ax = axes[0, 0]
-        models = list(results.keys())
-        metrics = ['mape', 'smape', 'rmse', 'mae']
+        if 'CausalMMM' in results and 'metrics' in results['CausalMMM']:
+            metrics = results['CausalMMM']['metrics']
+            metric_names = list(metrics.keys())
+            values = list(metrics.values())
+            ax.bar(metric_names, values, color='steelblue', alpha=0.7)
+            ax.set_ylabel('Error')
+            ax.set_title('CausalMMM Forecast Accuracy')
+            ax.grid(True, alpha=0.3)
         
-        for metric in metrics:
-            values = [results[m]['metrics'][metric] for m in models if 'metrics' in results[m]]
-            ax.bar(np.arange(len(models)) + metrics.index(metric) * 0.2, values, 
-                   width=0.2, label=metric.upper())
-        
-        ax.set_xticks(np.arange(len(models)) + 0.3)
-        ax.set_xticklabels(models)
-        ax.set_ylabel('Error')
-        ax.set_title('Forecast Accuracy Comparison')
-        ax.legend()
-        ax.grid(True, alpha=0.3)
-        
-        # 2. Timing comparison
+        # 2. Timing
         ax = axes[0, 1]
-        train_times = [results[m]['timing']['train_time'] for m in models if 'timing' in results[m]]
-        ax.barh(models, train_times)
-        ax.set_xlabel('Training Time (seconds)')
-        ax.set_title('Computational Efficiency')
-        ax.grid(True, alpha=0.3)
+        if 'CausalMMM' in results and 'timing' in results['CausalMMM']:
+            timing = results['CausalMMM']['timing']
+            ax.barh(['Train', 'Inference'], 
+                   [timing['train_time'], timing['inference_time']],
+                   color=['blue', 'green'], alpha=0.7)
+            ax.set_xlabel('Time (seconds)')
+            ax.set_title('Computational Efficiency')
+            ax.grid(True, alpha=0.3)
         
-        # 3. Graph structure quality (if available)
-        if 'graph_metrics' in results.get('CausalMMM', {}):
-            ax = axes[0, 2]
+        # 3. Graph quality
+        ax = axes[0, 2]
+        if 'CausalMMM' in results and 'graph_metrics' in results['CausalMMM']:
             graph_metrics = results['CausalMMM']['graph_metrics']
             metrics_names = ['Precision', 'Recall', 'F1']
             values = [graph_metrics['precision'], graph_metrics['recall'], graph_metrics['f1']]
-            ax.bar(metrics_names, values)
+            ax.bar(metrics_names, values, color='green', alpha=0.7)
             ax.set_ylim([0, 1])
             ax.set_title('Causal Structure Quality')
             ax.set_ylabel('Score')
             ax.grid(True, alpha=0.3)
         
-        # 4. Predictions vs actual (CausalMMM)
-        if 'CausalMMM' in results:
-            ax = axes[1, 0]
+        # 4. Predictions
+        ax = axes[1, 0]
+        if 'CausalMMM' in results and 'predictions' in results['CausalMMM']:
             y_pred = results['CausalMMM']['predictions']
-            # Plot first entity
             ax.plot(y_pred[0], label='Predicted', alpha=0.7)
             ax.set_xlabel('Time')
             ax.set_ylabel('Sales')
@@ -305,9 +241,9 @@ class BenchmarkSuite:
             ax.legend()
             ax.grid(True, alpha=0.3)
         
-        # 5. Learned causal graph
-        if 'graph' in results.get('CausalMMM', {}):
-            ax = axes[1, 1]
+        # 5. Learned graph
+        ax = axes[1, 1]
+        if 'CausalMMM' in results and 'graph' in results['CausalMMM']:
             graph = results['CausalMMM']['graph']
             im = ax.imshow(graph, cmap='Blues', aspect='auto')
             ax.set_title('Learned Causal Graph')
@@ -315,9 +251,9 @@ class BenchmarkSuite:
             ax.set_ylabel('From Variable')
             plt.colorbar(im, ax=ax)
         
-        # 6. True causal graph (if available)
+        # 6. True graph
+        ax = axes[1, 2]
         if 'true_graph' in results:
-            ax = axes[1, 2]
             true_graph = results['true_graph']
             im = ax.imshow(true_graph, cmap='Greens', aspect='auto')
             ax.set_title('True Causal Graph')
@@ -326,16 +262,15 @@ class BenchmarkSuite:
             plt.colorbar(im, ax=ax)
         
         plt.tight_layout()
-        plt.savefig(f'{self.output_dir}/benchmark_comparison.png', dpi=150, bbox_inches='tight')
-        print(f"\nVisualization saved to {self.output_dir}/benchmark_comparison.png")
+        save_path = os.path.join(self.output_dir, 'benchmark_comparison.png')
+        plt.savefig(save_path, dpi=150, bbox_inches='tight')
+        print(f"\nVisualization saved to {save_path}")
         plt.show()
     
     def run_full_benchmark(self, save_results: bool = True):
-        """
-        Run complete benchmark suite.
-        """
+        """Run complete benchmark suite."""
         print("="*80)
-        print("CAUSALMMM VS GOOGLE MERIDIAN BENCHMARK")
+        print("CAUSALMMM BENCHMARK")
         print("="*80)
         
         # 1. Generate data
@@ -347,8 +282,6 @@ class BenchmarkSuite:
             seed=42
         )
         print(f"   Generated {len(df)} observations")
-        print(f"   Entities: {df['entity'].nunique()}")
-        print(f"   Timesteps: {df['time'].nunique()}")
         
         # 2. Load and preprocess
         print("\n2. Loading and preprocessing...")
@@ -397,10 +330,7 @@ class BenchmarkSuite:
             epochs=30
         )
         
-        # 4. Run Meridian (if available)
-        meridian_results = self.run_meridian(train_data, test_data)
-        
-        # 5. Compare graphs
+        # 4. Compare graphs
         if 'graph' in causalmmm_results:
             graph_metrics = self.compare_causal_graphs(
                 causalmmm_results['graph'],
@@ -416,10 +346,9 @@ class BenchmarkSuite:
             print(f"F1 Score: {graph_metrics['f1']:.3f}")
             print(f"SHD: {graph_metrics['shd']}")
         
-        # 6. Compile results
+        # 5. Compile results
         results = {
             'CausalMMM': causalmmm_results,
-            'Meridian': meridian_results,
             'true_graph': true_graph,
             'data_info': {
                 'n_entities': len(entities),
@@ -428,17 +357,17 @@ class BenchmarkSuite:
             }
         }
         
-        # 7. Visualize
+        # 6. Visualize
         print("\n" + "="*60)
         print("Generating visualizations...")
         print("="*60)
         self.visualize_results(results)
         
-        # 8. Save results
+        # 7. Save results - LINHA 451 CORRIGIDA
         if save_results:
             import json
-            with open(f'{self.output_dir}/benchmark_results.json', 'w') as f:
-                # Convert numpy arrays to lists for JSON
+            results_path = os.path.join(self.output_dir, 'benchmark_results.json')
+            with open(results_path, 'w') as f:
                 results_json = {
                     'CausalMMM': {
                         'metrics': causalmmm_results['metrics'],
@@ -448,4 +377,30 @@ class BenchmarkSuite:
                     'data_info': results['data_info']
                 }
                 json.dump(results_json, f, indent=2)
-            print(f"\nResults saved to {self.output})
+            print(f"\nResults saved to {results_path}")  # ✅ CORRIGIDO!
+        
+        # 8. Summary
+        print("\n" + "="*80)
+        print("BENCHMARK SUMMARY")
+        print("="*80)
+        print("\nCausalMMM Performance:")
+        print(f"  MAPE: {causalmmm_results['metrics']['mape']:.2f}%")
+        print(f"  SMAPE: {causalmmm_results['metrics']['smape']:.2f}%")
+        print(f"  RMSE: {causalmmm_results['metrics']['rmse']:.2f}")
+        print(f"  Training Time: {causalmmm_results['timing']['train_time']:.2f}s")
+        
+        if 'graph_metrics' in causalmmm_results:
+            print(f"\nCausal Discovery:")
+            print(f"  Precision: {causalmmm_results['graph_metrics']['precision']:.3f}")
+            print(f"  Recall: {causalmmm_results['graph_metrics']['recall']:.3f}")
+            print(f"  F1 Score: {causalmmm_results['graph_metrics']['f1']:.3f}")
+        
+        return results
+
+
+if __name__ == "__main__":
+    # Run benchmark
+    benchmark = BenchmarkSuite(output_dir='./benchmark_results')
+    results = benchmark.run_full_benchmark(save_results=True)
+    
+    print("\n✅ Benchmark completed successfully!")

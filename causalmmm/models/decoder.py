@@ -56,51 +56,76 @@ class CarryoverModule(KL.Layer):
     def call(self, x: tf.Tensor) -> tf.Tensor:
         """
         Apply carryover transformation.
-        
+
         Args:
             x: [B, T, d] - Input time series
-            
+
         Returns:
             x_carryover: [B, T, d] - With carryover effects
         """
         if self.carryover_fn == 'none':
             return x
-        
-        B, T, d = tf.shape(x)[0], tf.shape(x)[1], tf.shape(x)[2]
-        
+
         if self.carryover_fn == 'geometric':
             # Geometric adstock: x_t = x_t + α*x_{t-1} + α²*x_{t-2} + ...
             decay = tf.nn.sigmoid(self.decay_logit)
-            
+
             # Convolve with decay weights
             weights = tf.pow(decay, tf.range(self.max_lag, dtype=tf.float32))
             weights = weights / tf.reduce_sum(weights)  # Normalize
-            
-            # Apply convolution per channel
-            x_carryover = tf.nn.conv1d(
-                x, 
-                tf.reshape(weights, [self.max_lag, 1, 1]),
-                stride=1,
-                padding='SAME'
-            )
-            
+
+            # Apply convolution separately for each channel
+            # Unstack channels: [B, T, d] -> list of d tensors [B, T]
+            channels = tf.unstack(x, axis=-1)
+            carryover_channels = []
+
+            for channel in channels:
+                # channel: [B, T]
+                # Add dimension: [B, T] -> [B, T, 1]
+                channel = tf.expand_dims(channel, axis=-1)
+                # Apply 1D convolution with weights [max_lag, 1, 1]
+                weights_filter = tf.reshape(weights, [self.max_lag, 1, 1])
+                channel_carryover = tf.nn.conv1d(
+                    channel,
+                    weights_filter,
+                    stride=1,
+                    padding='SAME'
+                )
+                # Remove dimension: [B, T, 1] -> [B, T]
+                channel_carryover = tf.squeeze(channel_carryover, axis=-1)
+                carryover_channels.append(channel_carryover)
+
+            # Stack back: list of [B, T] -> [B, T, d]
+            x_carryover = tf.stack(carryover_channels, axis=-1)
+
         elif self.carryover_fn == 'weibull':
             # Weibull adstock
             k = tf.nn.softplus(self.weibull_k) + 0.001
             lam = tf.nn.softplus(self.weibull_lambda) + 0.001
-            
+
             lags = tf.range(1, self.max_lag + 1, dtype=tf.float32)
             # Weibull PDF: (k/λ) * (t/λ)^(k-1) * exp(-(t/λ)^k)
             weights = (k / lam) * tf.pow(lags / lam, k - 1) * tf.exp(-tf.pow(lags / lam, k))
             weights = weights / tf.reduce_sum(weights)
-            
-            x_carryover = tf.nn.conv1d(
-                x,
-                tf.reshape(weights, [self.max_lag, 1, 1]),
-                stride=1,
-                padding='SAME'
-            )
-        
+
+            # Apply convolution separately for each channel
+            channels = tf.unstack(x, axis=-1)
+            carryover_channels = []
+
+            for channel in channels:
+                channel = tf.expand_dims(channel, axis=-1)
+                weights_filter = tf.reshape(weights, [self.max_lag, 1, 1])
+                channel_carryover = tf.nn.conv1d(
+                    channel,
+                    weights_filter,
+                    stride=1,
+                    padding='SAME'
+                )
+                channel_carryover = tf.squeeze(channel_carryover, axis=-1)
+                carryover_channels.append(channel_carryover)
+
+            x_carryover = tf.stack(carryover_channels, axis=-1)
+
         return x_carryover
 
 
@@ -210,11 +235,14 @@ class MarketingResponseDecoder(tf.keras.Model):
         self.dec_config = config.decoder
         self.n_variables = config.n_variables
         
-        # Edge message MLP
+        # Edge message MLP with Layer Normalization for stability
         self.edge_mlp = tf.keras.Sequential([
-            KL.Dense(self.dec_config.hidden_dim, activation='relu'),
+            KL.Dense(self.dec_config.hidden_dim, kernel_initializer='glorot_uniform'),
+            KL.LayerNormalization(),
+            KL.Activation('relu'),
             KL.Dropout(self.dec_config.dropout),
-            KL.Dense(self.dec_config.hidden_dim)
+            KL.Dense(self.dec_config.hidden_dim, kernel_initializer='glorot_uniform'),
+            KL.LayerNormalization()
         ])
         
         # RNN for temporal modeling
@@ -231,11 +259,13 @@ class MarketingResponseDecoder(tf.keras.Model):
                 return_sequences=True
             )
         
-        # Prediction head
+        # Prediction head with Layer Normalization
         self.pred_head = tf.keras.Sequential([
-            KL.Dense(self.dec_config.hidden_dim, activation='relu'),
+            KL.Dense(self.dec_config.hidden_dim, kernel_initializer='glorot_uniform'),
+            KL.LayerNormalization(),
+            KL.Activation('relu'),
             KL.Dropout(self.dec_config.dropout),
-            KL.Dense(1)
+            KL.Dense(1, kernel_initializer='glorot_uniform')
         ])
         
         # Carryover module
@@ -257,16 +287,16 @@ class MarketingResponseDecoder(tf.keras.Model):
     def call(self, X: tf.Tensor, y: tf.Tensor, z_graph: tf.Tensor,
              context: Optional[tf.Tensor] = None, training: bool = False) -> Tuple[tf.Tensor, tf.Tensor]:
         """
-        Decode using causal graph.
-        
+        Decode using causal graph to predict target variable.
+
         Args:
             X: [B, T, d] - Channel data
             y: [B, T, 1] - Target data
             z_graph: [B, n, n] - Causal adjacency matrix
             context: [B, c] - Context features
-            
+
         Returns:
-            mu: [B, T-1, n] - Predictions
+            mu: [B, T-1, 1] - Target predictions (CHANGED: now only predicts target)
             sigma: scalar - Output std
         """
         B = tf.shape(X)[0]
@@ -313,18 +343,16 @@ class MarketingResponseDecoder(tf.keras.Model):
             out_seq, h_new = self.rnn(msg_j_seq, initial_state=h_state_flat, training=training)
             h_state_new = tf.reshape(h_new, [B, n, self.dec_config.hidden_dim])
             
-            # Predict next step
+            # Predict next step - ONLY TARGET (last node)
             pred_in = tf.reshape(out_seq[:, -1, :], [B, n, self.dec_config.hidden_dim])
-            mu_t1 = self.pred_head(pred_in, training=training)  # [B, n, 1]
-            mu_t1 = tf.squeeze(mu_t1, -1)  # [B, n]
-            
-            # Apply saturation only to target (last variable)
-            mu_channels = mu_t1[:, :-1]
-            mu_target = mu_t1[:, -1:]
-            mu_target_sat = self.saturation(mu_target, context)
-            mu_t1_final = tf.concat([mu_channels, mu_target_sat], axis=-1)
-            
-            mu_array_new = mu_array.write(t, mu_t1_final)
+            # Extract only the target node embedding (last one)
+            pred_in_target = pred_in[:, -1, :]  # [B, hidden_dim]
+            mu_t1 = self.pred_head(pred_in_target, training=training)  # [B, 1]
+
+            # Apply saturation to target prediction
+            mu_target_sat = self.saturation(mu_t1, context)  # [B, 1]
+
+            mu_array_new = mu_array.write(t, mu_target_sat)
             return t + 1, mu_array_new, h_state_new, XY
         
         def body_lstm(t, mu_array, h_state, c_state, XY):
@@ -352,15 +380,16 @@ class MarketingResponseDecoder(tf.keras.Model):
             h_state_new = tf.reshape(h_new, [B, n, self.dec_config.hidden_dim])
             c_state_new = tf.reshape(c_new, [B, n, self.dec_config.hidden_dim])
             
+            # Predict next step - ONLY TARGET (last node)
             pred_in = tf.reshape(out_seq[:, -1, :], [B, n, self.dec_config.hidden_dim])
-            mu_t1 = tf.squeeze(self.pred_head(pred_in, training=training), -1)
-            
-            mu_channels = mu_t1[:, :-1]
-            mu_target = mu_t1[:, -1:]
-            mu_target_sat = self.saturation(mu_target, context)
-            mu_t1_final = tf.concat([mu_channels, mu_target_sat], axis=-1)
-            
-            mu_array_new = mu_array.write(t, mu_t1_final)
+            # Extract only the target node embedding (last one)
+            pred_in_target = pred_in[:, -1, :]  # [B, hidden_dim]
+            mu_t1 = self.pred_head(pred_in_target, training=training)  # [B, 1]
+
+            # Apply saturation to target prediction
+            mu_target_sat = self.saturation(mu_t1, context)  # [B, 1]
+
+            mu_array_new = mu_array.write(t, mu_target_sat)
             return t + 1, mu_array_new, h_state_new, c_state_new, XY
         
         # Run temporal loop
@@ -379,8 +408,8 @@ class MarketingResponseDecoder(tf.keras.Model):
                 parallel_iterations=1
             )
         
-        mu_all = mu_array_final.stack()  # [T-1, B, n]
-        mu_all = tf.transpose(mu_all, [1, 0, 2])  # [B, T-1, n]
+        mu_all = mu_array_final.stack()  # [T-1, B, 1]
+        mu_all = tf.transpose(mu_all, [1, 0, 2])  # [B, T-1, 1]
         sigma = tf.exp(self.log_sigma)
-        
+
         return mu_all, sigma

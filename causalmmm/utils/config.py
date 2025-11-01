@@ -77,16 +77,16 @@ class CausalMMMConfig:
     temperature_decay: float = 0.9995
     hard_gumbel: bool = False
     
-    # Regularization
+    # Regularization (reduced defaults for numerical stability)
     prior_pi: float = 0.1
-    lambda_kl: float = 1.0
-    lambda_dag: float = 1.0
-    lambda_temporal: float = 0.1
-    lambda_saturation: float = 0.1
-    
-    # Optimization
-    learning_rate: float = 1e-3
-    gradient_clip: float = 1.0
+    lambda_kl: float = 0.01  # Reduced from 1.0
+    lambda_dag: float = 0.01  # Reduced from 1.0
+    lambda_temporal: float = 0.01  # Reduced from 0.1
+    lambda_saturation: float = 0.01  # Reduced from 0.1
+
+    # Optimization (conservative defaults for stability)
+    learning_rate: float = 1e-4  # Reduced from 1e-3
+    gradient_clip: float = 5.0  # Increased from 1.0
     
     @property
     def n_variables(self) -> int:

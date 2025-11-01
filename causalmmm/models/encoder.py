@@ -78,11 +78,14 @@ class PairwiseEmbedding(KL.Layer):
         # Per-variable temporal encoder (RNN)
         self.temporal_encoder = KL.GRU(hidden_dim, return_sequences=False)
         
-        # Pairwise MLP
+        # Pairwise MLP with Layer Normalization
         self.pairwise_mlp = tf.keras.Sequential([
-            KL.Dense(hidden_dim, activation='relu'),
+            KL.Dense(hidden_dim, kernel_initializer='glorot_uniform'),
+            KL.LayerNormalization(),
+            KL.Activation('relu'),
             KL.Dropout(0.1),
-            KL.Dense(hidden_dim)
+            KL.Dense(hidden_dim, kernel_initializer='glorot_uniform'),
+            KL.LayerNormalization()
         ])
     
     def call(self, X: tf.Tensor, y: tf.Tensor, training: bool = False) -> tf.Tensor:
@@ -135,18 +138,24 @@ class RelationalInteraction(KL.Layer):
         self.hidden_dim = hidden_dim
         self.aggregation = aggregation
         
-        # Node update MLP (aggregates incoming edges)
+        # Node update MLP (aggregates incoming edges) with Layer Normalization
         self.node_mlp = tf.keras.Sequential([
-            KL.Dense(hidden_dim, activation='relu'),
+            KL.Dense(hidden_dim, kernel_initializer='glorot_uniform'),
+            KL.LayerNormalization(),
+            KL.Activation('relu'),
             KL.Dropout(0.1),
-            KL.Dense(hidden_dim)
+            KL.Dense(hidden_dim, kernel_initializer='glorot_uniform'),
+            KL.LayerNormalization()
         ])
-        
-        # Edge refinement MLP
+
+        # Edge refinement MLP with Layer Normalization
         self.edge_refine_mlp = tf.keras.Sequential([
-            KL.Dense(hidden_dim, activation='relu'),
+            KL.Dense(hidden_dim, kernel_initializer='glorot_uniform'),
+            KL.LayerNormalization(),
+            KL.Activation('relu'),
             KL.Dropout(0.1),
-            KL.Dense(hidden_dim)
+            KL.Dense(hidden_dim, kernel_initializer='glorot_uniform'),
+            KL.LayerNormalization()
         ])
         
         if aggregation == 'attention':

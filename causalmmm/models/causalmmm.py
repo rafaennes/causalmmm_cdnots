@@ -103,9 +103,9 @@ class CausalMMM(tf.keras.Model):
         )
         
         # 1. Negative Log-Likelihood (Reconstruction)
-        XY = tf.concat([X, y], axis=-1)
-        target = XY[:, 1:, :]  # [B, T-1, n]
-        
+        # Now mu has shape [B, T-1, 1] - only target predictions
+        target = y[:, 1:, :]  # [B, T-1, 1] - only target values
+
         if self.config.vae_mode:
             # Gaussian likelihood: log p(y|X, z)
             resid = target - mu
@@ -143,10 +143,13 @@ class CausalMMM(tf.keras.Model):
             exp_A = tf.linalg.expm(A_i)
             h = tf.linalg.trace(exp_A) - tf.cast(n, tf.float32)
             return h
-        
+
         A = edge_probs * (1.0 - eye)
         h_all = tf.map_fn(compute_dag_penalty, A, dtype=tf.float32)
         dag_penalty = tf.reduce_mean(h_all)
+
+        # Clip DAG penalty to prevent numerical explosion
+        dag_penalty = tf.clip_by_value(dag_penalty, -100.0, 100.0)
         
         # 4. Temporal Regularization (optional)
         # Encourage temporal consistency
@@ -207,7 +210,7 @@ class CausalMMM(tf.keras.Model):
     def fit(self, X, y, context=None, time_idx=None, epochs=50, verbose=1):
         """
         Train the model.
-        
+
         Args:
             X: [B, T, d] - Channel data
             y: [B, T, 1] - Target data
@@ -215,23 +218,42 @@ class CausalMMM(tf.keras.Model):
             time_idx: [B, T] - Time indices
             epochs: Number of training epochs
             verbose: Verbosity level
+
+        Returns:
+            history: Dict with training metrics per epoch
         """
         # Convert to tensors
         X = tf.convert_to_tensor(X, dtype=tf.float32)
         y = tf.convert_to_tensor(y, dtype=tf.float32)
         context = tf.convert_to_tensor(context, dtype=tf.float32) if context is not None else None
         time_idx = tf.convert_to_tensor(time_idx, dtype=tf.int32) if time_idx is not None else None
-        
+
+        # History tracking
+        history = {
+            'loss': [],
+            'nll': [],
+            'kl': [],
+            'dag': [],
+            'temperature': []
+        }
+
         for epoch in range(1, epochs + 1):
             # Reset metrics
             self.loss_tracker.reset_state()
             self.nll_tracker.reset_state()
             self.kl_tracker.reset_state()
             self.dag_tracker.reset_state()
-            
+
             # Train step
             metrics = self.train_step(X, y, context, time_idx)
-            
+
+            # Track history
+            history['loss'].append(float(metrics['loss']))
+            history['nll'].append(float(metrics['nll']))
+            history['kl'].append(float(metrics['kl']))
+            history['dag'].append(float(metrics['dag']))
+            history['temperature'].append(float(metrics['temperature']))
+
             # Print progress
             if verbose and epoch % max(1, epochs // 20) == 0:
                 print(f"Epoch {epoch:03d}/{epochs} | "
@@ -240,6 +262,8 @@ class CausalMMM(tf.keras.Model):
                       f"KL: {metrics['kl']:.4f} | "
                       f"DAG: {metrics['dag']:.4f} | "
                       f"Temp: {metrics['temperature']:.3f}")
+
+        return history
     
     def predict(self, X, context=None, time_idx=None):
         """
@@ -261,7 +285,7 @@ class CausalMMM(tf.keras.Model):
         time_idx = tf.convert_to_tensor(time_idx, dtype=tf.int32) if time_idx is not None else None
         
         mu, _, _, _ = self((X, y, context, time_idx), training=False)
-        return mu[:, :, -1].numpy()  # Return target predictions
+        return mu[:, :, 0].numpy()  # Return target predictions [B, T-1]
     
     def get_causal_graph(self, X=None, y=None, context=None, time_idx=None, threshold=0.3):
         """
