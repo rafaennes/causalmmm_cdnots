@@ -2,26 +2,32 @@
 #
 # Licensed under the Apache License, Version 2.0
 
-"""CD-NOTS causal graph discovery for MMM benchmark data.
+"""Causal graph discovery for MMM benchmark data.
 
-VERSION 2: Adds control variable support for endogeneity detection.
+VERSION 3: Replaces PC + temporal augmentation with PCMCI (tigramite) as
+the primary discovery algorithm. PC is kept as a secondary fallback.
 
-Key changes from v1:
-    - control_columns parameter: includes controls in discovery graph
-    - Endogeneity detection: identifies channels confounded by controls
-      (e.g., Price → Search AND Price → Sales = endogenous Search)
-    - Adaptive CI test: kci (non-linear, kernel-based) quando há 1 geo;
-      parcorr (linear Fisher-Z, 100-1000x mais rápido) quando há multi-geo.
-      Configurável via parâmetro `ci_test` ("auto" | "parcorr" | "kci").
-    - Geo sampling: uses max 5 geos for discovery (rest is redundant)
-    - CausalGraph now includes endogenous_channels and control info
+Why PCMCI over PC + temporal augmentation:
+    - PC on the augmented matrix (vars × lags columns) explodes with
+      dimensionality — false-positive rate grows with number of variables.
+    - PCMCI conditions on parents of both endpoints (MCI test), which keeps
+      conditioning sets small and dramatically reduces false positives.
+    - PCMCI handles time series autocorrelation explicitly; PC does not.
+
+Key features:
+    - Primary: PCMCI via tigramite (ParCorr or CMIknn CI tests).
+    - Fallback 1: PC + temporal augmentation via causal-learn.
+    - Fallback 2: pairwise Granger causality via statsmodels.
+    - control_columns: includes controls to detect endogeneity.
+    - Geo sampling: max 5 geos (rest is redundant for discovery).
+    - CausalGraph includes endogenous_channels, endogenous_r2, control info.
 
 Usage:
     graph = discover_graph(
         data_df, channel_columns,
-        control_columns=["c1", "c2"],  # NEW: include controls
-        alpha=0.05, max_lag=1, console=console,
-        ci_test="auto",  # "auto" (default), "parcorr" ou "kci"
+        control_columns=["c1", "c2"],
+        alpha=0.05, max_lag=2, console=console,
+        ci_test="auto",  # "auto" | "parcorr" | "kci"
     )
     # graph.endogenous_channels: channels confounded by a control
 """
@@ -48,11 +54,11 @@ class CausalGraph:
     excluded_channels: Tuple[str, ...]
     mediated_channels: Tuple[str, ...]
     endogenous_channels: Tuple[str, ...]   # NEW: channels confounded by controls
-    endogenous_r2: Dict[str, float] = field(default_factory=dict)  # NEW: R2 for endogenous channels
     runtime_seconds: float
     ci_test_used: str
     n_edges: int
     # Control info
+    endogenous_r2: Dict[str, float] = field(default_factory=dict)  # NEW: R2 for endogenous channels
     control_names: Tuple[str, ...] = ()
     control_to_channel_edges: Tuple[Tuple[str, str], ...] = ()  # (control, channel) pairs
 
@@ -266,25 +272,120 @@ def _discover_single_geo(
     max_lag: int,
     ci_test: str,
 ) -> Tuple[np.ndarray, np.ndarray]:
-    """Run discovery on a single geo. PC with temporal augmentation, Granger fallback."""
+    """Run discovery on a single geo. PCMCI primary, PC fallback, Granger last resort."""
     scaler = StandardScaler()
     data = scaler.fit_transform(data)
 
     try:
-        return _pc_with_temporal_augmentation(data, n_vars, alpha, max_lag, ci_test)
+        return _pcmci_discovery(data, n_vars, alpha, max_lag, ci_test)
     except ImportError:
-        warnings.warn("causal-learn not available, falling back to Granger causality")
-        return _granger_fallback(data, n_vars, alpha, max_lag)
+        warnings.warn(
+            "tigramite not available, falling back to PC + temporal augmentation. "
+            "Install with: pip install tigramite"
+        )
+        try:
+            return _pc_fallback(data, n_vars, alpha, max_lag, ci_test)
+        except ImportError:
+            warnings.warn("causal-learn not available either, using Granger causality")
+            return _granger_fallback(data, n_vars, alpha, max_lag)
 
 
-def _pc_with_temporal_augmentation(
+def _pcmci_discovery(
     data: np.ndarray,
     n_vars: int,
     alpha: float,
     max_lag: int,
     ci_test_name: str,
 ) -> Tuple[np.ndarray, np.ndarray]:
-    """PC algorithm with temporal augmentation (CD-NOTS-style)."""
+    """Primary discovery: PCMCI via tigramite.
+
+    Lower false-positive rate than PC + temporal augmentation because:
+    - MCI test conditions on parents of both endpoints → small conditioning
+      sets regardless of variable count.
+    - Handles time-series autocorrelation explicitly.
+    - Does not require building an augmented variable matrix.
+
+    Parameters
+    ----------
+    data : np.ndarray
+        Standardised (T, n_vars) array for one geo.
+    n_vars : int
+        Number of discovery variables (channels + controls + y).
+    alpha : float
+        Significance threshold applied to raw MCI p-values.
+    max_lag : int
+        Maximum temporal lag (tau_max). tau_min is always 1 (lagged only).
+    ci_test_name : str
+        "parcorr" → ParCorr (linear Fisher-Z, fast).
+        "kci"     → CMIknn (k-NN nonparametric, handles adstock/saturation).
+
+    Returns
+    -------
+    adj : np.ndarray (n_vars, n_vars)
+        adj[i, j] = 1 if X_i(t-k) → X_j(t) for any k in 1..max_lag.
+    pval : np.ndarray (n_vars, n_vars)
+        Minimum MCI p-value across tested lags; 1.0 where no edge.
+    """
+    from tigramite import data_processing as pp
+    from tigramite.pcmci import PCMCI
+
+    from tigramite.independence_tests.parcorr import ParCorr
+
+    if ci_test_name in ("parcorr", "fisherz"):
+        cond_ind_test = ParCorr()
+    else:
+        # CMIknn: nonparametric k-NN CMI estimator — captures nonlinear
+        # adstock/saturation effects without the O(N³) cost of kernel KCI.
+        # Requires numba; falls back to ParCorr if numba is broken/missing.
+        try:
+            from tigramite.independence_tests.cmiknn import CMIknn
+            cond_ind_test = CMIknn(knn=5)
+        except (ImportError, AttributeError):
+            warnings.warn(
+                "CMIknn unavailable (numba not importable). "
+                "Falling back to ParCorr for kci mode."
+            )
+            cond_ind_test = ParCorr()
+
+    # tigramite expects shape (T, N) — pass only the n_vars contemporary cols
+    dataframe = pp.DataFrame(data[:, :n_vars], var_names=list(range(n_vars)))
+    pcmci = PCMCI(dataframe=dataframe, cond_ind_test=cond_ind_test, verbosity=0)
+
+    # tau_min=1: only lagged links — contemporaneous edges are ambiguous in MMM
+    results = pcmci.run_pcmci(tau_max=max_lag, tau_min=1, pc_alpha=alpha)
+
+    # p_matrix[i, j, tau] = MCI p-value of X_i(t-tau) → X_j(t)
+    # Shape: (n_vars, n_vars, tau_max+1); index 0 (contemporaneous) = 1.0
+    p_matrix = results["p_matrix"]  # (N, N, tau_max+1)
+
+    adj = np.zeros((n_vars, n_vars))
+    pval = np.ones((n_vars, n_vars))
+
+    for i in range(n_vars):
+        for j in range(n_vars):
+            if i == j:
+                continue
+            # Minimum p-value across lags 1..max_lag
+            min_p = float(p_matrix[i, j, 1 : max_lag + 1].min())
+            pval[i, j] = min_p
+            if min_p < alpha:
+                adj[i, j] = 1.0
+
+    return adj, pval
+
+
+def _pc_fallback(
+    data: np.ndarray,
+    n_vars: int,
+    alpha: float,
+    max_lag: int,
+    ci_test_name: str,
+) -> Tuple[np.ndarray, np.ndarray]:
+    """Fallback discovery: PC algorithm with temporal augmentation (causal-learn).
+
+    Used only when tigramite is not installed. Higher false-positive rate than
+    PCMCI, especially for > 6 variables or short time series.
+    """
     from causallearn.search.ConstraintBased.PC import pc
     from causallearn.utils.cit import fisherz, kci
 
