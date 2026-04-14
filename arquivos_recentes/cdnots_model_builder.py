@@ -58,6 +58,40 @@ FLOOR = 0.4
 # Probabilistic prior adjustment
 # ============================================================
 
+def _path_min_confidence_pvalue(
+    adj: np.ndarray,
+    pvals: np.ndarray,
+    source: int,
+    target: int,
+    max_depth: int = 3,
+) -> float:
+    """Return the p-value of the weakest edge along the best path to target.
+
+    A mediated channel's confidence is bounded by its flimsiest mediating
+    edge. Among all paths source → ... → target (depth ≤ max_depth), the
+    path's strength = max p-value on that path. We return the minimum of
+    those path strengths (i.e., the best available path). Returns 1.0 if
+    no path exists.
+    """
+    # BFS tracking best (lowest) path-max-pvalue to each node
+    best = {source: 0.0}
+    frontier = [source]
+    for _ in range(max_depth):
+        next_frontier = []
+        for node in frontier:
+            for child in range(adj.shape[1]):
+                if adj[node, child] <= 0 or child == node:
+                    continue
+                path_max = max(best[node], float(pvals[node, child]))
+                if path_max < best.get(child, np.inf):
+                    best[child] = path_max
+                    next_frontier.append(child)
+        frontier = next_frontier
+        if not frontier:
+            break
+    return best.get(target, 1.0)
+
+
 def _compute_sigma_multipliers(
     channel_columns: List[str],
     graph: CausalGraph,
@@ -89,7 +123,18 @@ def _compute_sigma_multipliers(
     for i, ch in enumerate(channel_columns):
         if ch in graph.variable_names:
             ch_idx = graph.variable_names.index(ch)
-            p_value = graph.edge_pvalues[ch_idx, y_idx]
+            has_direct = graph.adjacency_matrix[ch_idx, y_idx] > 0
+            if has_direct:
+                p_value = graph.edge_pvalues[ch_idx, y_idx]
+            elif ch in graph.mediated_channels:
+                # Indirect path: use the weakest link's p-value along the
+                # most confident path to y. Mediated confidence is bounded
+                # by its flimsiest mediating edge.
+                p_value = _path_min_confidence_pvalue(
+                    graph.adjacency_matrix, graph.edge_pvalues, ch_idx, y_idx
+                )
+            else:
+                p_value = 1.0
         else:
             p_value = 1.0
 
@@ -100,6 +145,15 @@ def _compute_sigma_multipliers(
             multipliers[i] = 1.0 + damping * confidence
         else:
             multipliers[i] = max(floor, 1.0 - damping * confidence)
+
+        # Endogeneity penalty (Data-Driven): if a control confounds this channel,
+        # shrink its prior proportionately to the variance explained by the control (R2).
+        # We use Tolerance = 1 - R2 as the shrinkage factor.
+        if hasattr(graph, 'endogenous_r2') and ch in graph.endogenous_r2:
+            r2 = graph.endogenous_r2[ch]
+            tolerance = max(0.1, 1.0 - r2)  # shrink by R2, min 10% tolerance
+            multipliers[i] *= tolerance
+            multipliers[i] = max(floor, multipliers[i])
 
     return multipliers
 
@@ -126,7 +180,18 @@ def _compute_adstock_params(
     for i, ch in enumerate(channel_columns):
         if ch in graph.variable_names:
             ch_idx = graph.variable_names.index(ch)
-            p_value = graph.edge_pvalues[ch_idx, y_idx]
+            has_direct = graph.adjacency_matrix[ch_idx, y_idx] > 0
+            if has_direct:
+                p_value = graph.edge_pvalues[ch_idx, y_idx]
+            elif ch in graph.mediated_channels:
+                # Indirect path: use the weakest link's p-value along the
+                # most confident path to y. Mediated confidence is bounded
+                # by its flimsiest mediating edge.
+                p_value = _path_min_confidence_pvalue(
+                    graph.adjacency_matrix, graph.edge_pvalues, ch_idx, y_idx
+                )
+            else:
+                p_value = 1.0
         else:
             p_value = 1.0
 

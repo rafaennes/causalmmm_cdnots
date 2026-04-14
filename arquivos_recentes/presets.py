@@ -1,4 +1,4 @@
-# Copyright 2025 PyMC Labs
+## Copyright 2025 PyMC Labs
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -699,16 +699,26 @@ def customize_preset(preset_name: str, **overrides) -> MMMDataConfig:
 
 
 def _get_causal_business_preset(seed: int) -> MMMDataConfig:
-    """Business preset with known inter-channel causal relationships.
+    """Business preset with known inter-channel causal relationships,
+    endogeneity, and ghost channels.
     
     Causal structure (ground truth):
-        TV → Search-Ads (lag=2, effect=0.20, decay=0.5)
-        Social-Media → Brand-Search (lag=1, effect=0.15, decay=0.4)
-        Video → Social-Media (lag=1, effect=0.10, decay=0.3)
-        All channels → Sales (direct, via adstock + saturation)
+        TV → Search-Ads (lag=2, effect=0.20) — TV drives search queries
+        Social-Media → Brand-Search (lag=1, effect=0.15) — social drives brand
+        Video → Social-Media (lag=1, effect=0.10) — video drives social
+        All real channels → Sales (direct, via adstock + saturation)
     
-    This creates a realistic marketing funnel where upper-funnel
-    channels (TV, Video) drive lower-funnel activity (Search, Social).
+    Endogeneity test:
+        Price (control) → Search-Ads (via causal_edges on control)
+        This simulates: when price drops (promotion), search volume increases.
+        Baseline models attribute this to Search-Ads effectiveness, but it's
+        actually driven by price. CD-NOTS should detect Price → Search-Ads
+        and shrink the Search-Ads prior.
+    
+    Ghost channels (noise):
+        Ghost-A, Ghost-B: base_effectiveness=0.0 (pure noise)
+        CD-NOTS + prior should regularize these toward zero without breaking
+        convergence of real channels.
     """
     return MMMDataConfig(
         n_periods=156,
@@ -762,8 +772,29 @@ def _get_causal_business_preset(seed: int) -> MMMDataConfig:
                 spend_volatility=0.15,
                 base_effectiveness=0.3
             ),
+            # ============================================================
+            # Ghost channels: pure noise, zero real effectiveness
+            # Tests if CD-NOTS + prior can correctly suppress these
+            # ============================================================
+            ChannelConfig(
+                name="Ghost-A",
+                pattern="seasonal",
+                base_spend=2000.0,
+                seasonal_amplitude=0.3,
+                spend_volatility=0.25,
+                base_effectiveness=0.0,  # NO real effect on sales
+            ),
+            ChannelConfig(
+                name="Ghost-B",
+                pattern="on_off",
+                base_spend=1500.0,
+                activation_probability=0.5,
+                spend_volatility=0.20,
+                base_effectiveness=0.0,  # NO real effect on sales
+            ),
         ],
         causal_edges=[
+            # Inter-channel causal relationships
             CausalEdgeConfig(
                 source_channel="TV",
                 target_channel="Search-Ads",
@@ -800,12 +831,14 @@ def _get_causal_business_preset(seed: int) -> MMMDataConfig:
         transforms=TransformConfig(
             adstock_fun="geometric_adstock",
             adstock_kwargs=[
-                {"alpha": 0.5},
-                {"alpha": 0.4},
-                {"alpha": 0.7},
-                {"alpha": 0.6},
-                {"alpha": 0.5},
-                {"alpha": 0.3},
+                {"alpha": 0.5},   # Search-Ads
+                {"alpha": 0.4},   # Brand-Search
+                {"alpha": 0.7},   # TV
+                {"alpha": 0.6},   # Video
+                {"alpha": 0.5},   # Social-Media
+                {"alpha": 0.3},   # Display-Ads
+                {"alpha": 0.4},   # Ghost-A
+                {"alpha": 0.3},   # Ghost-B
             ],
             saturation_fun="hill_function",
             saturation_kwargs=[
@@ -815,6 +848,8 @@ def _get_causal_business_preset(seed: int) -> MMMDataConfig:
                 {"slope": 1.0, "kappa": 0.18},
                 {"slope": 1.1, "kappa": 0.14},
                 {"slope": 0.9, "kappa": 0.16},
+                {"slope": 1.0, "kappa": 0.15},  # Ghost-A
+                {"slope": 1.0, "kappa": 0.15},  # Ghost-B
             ],
         ),
         control_variables=[
