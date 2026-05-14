@@ -133,6 +133,24 @@ The adjusted sigma is a **continuous spike-and-slab relaxation** (Ishwaran & Rao
 σ_adj = σ_base × (MIN_SIGMA_RATIO + (1 − MIN_SIGMA_RATIO) × PIP)
 ```
 
+**Derivation of the constants (important for dissertation):**
+
+The ideal formulation is a proper spike-and-slab:
+`β ~ PIP × HalfNormal(σ_base) + (1 − PIP) × δ(0)`
+
+This is intractable in MCMC (requires discrete latent indicators → slow convergence). The continuous relaxation replaces δ(0) with a HalfNormal of minimal width, interpolating linearly between the two extremes:
+
+| PIP | Regime | Target σ_adj |
+|---|---|---|
+| 1.0 | All slab — certain causal effect | σ_base (full prior) |
+| 0.0 | All spike — certain no effect | as small as MCMC tolerates |
+
+Linear interpolation: `σ_adj = σ_base × (SPIKE + (SLAB − SPIKE) × PIP)` where SPIKE = MIN_SIGMA_RATIO and SLAB = 1.0, giving `σ_base × (0.4 + 0.6 × PIP)`.
+
+**Why 0.4:** This is the existing `FLOOR = 0.4` from V2 of `cdnots_model_builder.py`, kept because empirical testing showed that values below ~0.3–0.4 caused prior-likelihood conflict (R-hat > 1.8). It represents the minimum spike width the sampler can handle. The constant is renamed `MIN_SIGMA_RATIO` and its role is now explicit: it is the spike component of the relaxed spike-and-slab, not a free tuning parameter.
+
+**Why 0.6:** This is `1 − MIN_SIGMA_RATIO = 1 − 0.4`, a consequence of the linear interpolation, not an independent choice.
+
 Where:
 - `PIP = 1 - q_value` for **all** channels (direct, mediated, and excluded)
 - For **direct** channels: q_value is the edge q-value of ch→y directly
