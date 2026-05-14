@@ -202,7 +202,9 @@ def discover_graph(
         else:
             geo_data = data_df[discovery_vars].values.astype(float)
 
-        adj, pval, qval = _discover_single_geo(geo_data, n_vars, alpha, max_lag, ci_test)
+        adj, pval, qval = _discover_single_geo(
+            geo_data, n_vars, alpha, max_lag, ci_test, n_channels, n_controls
+        )
         per_geo_adj[geo] = adj
         per_geo_pval[geo] = pval
         per_geo_qval[geo] = qval
@@ -302,6 +304,8 @@ def _discover_single_geo(
     alpha: float,
     max_lag: int,
     ci_test: str,
+    n_channels: int = 0,
+    n_controls: int = 0,
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Run discovery on a single geo. PCMCI primary, PC fallback, Granger last resort.
 
@@ -312,7 +316,8 @@ def _discover_single_geo(
     data = scaler.fit_transform(data)
 
     try:
-        return _pcmci_discovery(data, n_vars, alpha, max_lag, ci_test)
+        return _pcmci_discovery(data, n_vars, alpha, max_lag, ci_test,
+                                n_channels, n_controls)
     except ImportError:
         warnings.warn(
             "tigramite not available, falling back to PC + temporal augmentation. "
@@ -320,11 +325,11 @@ def _discover_single_geo(
         )
         try:
             adj, pval = _pc_fallback(data, n_vars, alpha, max_lag, ci_test)
-            return adj, pval, pval  # qval=pval: no FDR correction in PC fallback
+            return adj, pval, pval
         except ImportError:
             warnings.warn("causal-learn not available either, using Granger causality")
             adj, pval = _granger_fallback(data, n_vars, alpha, max_lag)
-            return adj, pval, pval  # qval=pval: no FDR correction in Granger fallback
+            return adj, pval, pval
 
 
 def _pcmci_discovery(
@@ -333,6 +338,8 @@ def _pcmci_discovery(
     alpha: float,
     max_lag: int,
     ci_test_name: str,
+    n_channels: int = 0,
+    n_controls: int = 0,
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Primary discovery: PCMCI via tigramite with BH FDR correction.
 
@@ -516,6 +523,48 @@ def _granger_fallback(
                 pass
 
     return adj, pval
+
+
+def _build_mmm_link_assumptions(
+    n_channels: int,
+    n_controls: int,
+    n_vars: int,
+    max_lag: int,
+) -> dict:
+    """Restrict PCMCI to structurally possible edges in MMM.
+
+    Allowed edges (tested):
+      - channel/control → y      (direct / mediated detection)
+      - channel_i → channel_j    (mediated path between channels)
+      - channel_i → channel_i    (self-lag / autocorrelation conditioning)
+      - control   → channel      (endogeneity detection)
+
+    Forbidden edges (skipped, saves ~30% of CI tests):
+      - y → anything             (y is the terminal outcome)
+      - channel → control        (controls are exogenous by design)
+      - control → control        (controls are assumed independent)
+    """
+    y_idx        = n_vars - 1
+    channel_idxs = list(range(n_channels))
+    control_idxs = list(range(n_channels, n_channels + n_controls))
+    lags         = [-tau for tau in range(1, max_lag + 1)]
+
+    la: dict = {j: {} for j in range(n_vars)}
+
+    # anything → y
+    for i in range(n_vars - 1):
+        for lag in lags:
+            la[y_idx][(i, lag)] = "?->"
+
+    # channel/control → channel  (includes self-lags for autocorrelation)
+    for j in channel_idxs:
+        for i in channel_idxs + control_idxs:
+            for lag in lags:
+                la[j][(i, lag)] = "?->"
+
+    # controls and y stay empty: no incoming edges
+
+    return la
 
 
 def _has_path(adj: np.ndarray, source: int, target: int, max_depth: int = 3) -> bool:
