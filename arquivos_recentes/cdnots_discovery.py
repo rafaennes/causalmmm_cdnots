@@ -48,7 +48,8 @@ from sklearn.preprocessing import StandardScaler
 class CausalGraph:
     """Immutable result of causal discovery on MMM data."""
     adjacency_matrix: np.ndarray
-    edge_pvalues: np.ndarray
+    edge_pvalues: np.ndarray   # raw MCI p-values — display/debug only
+    edge_qvalues: np.ndarray   # BH-corrected q-values — used for prior calibration
     variable_names: Tuple[str, ...]
     direct_channels: Tuple[str, ...]
     excluded_channels: Tuple[str, ...]
@@ -61,6 +62,28 @@ class CausalGraph:
     endogenous_r2: Dict[str, float] = field(default_factory=dict)  # NEW: R2 for endogenous channels
     control_names: Tuple[str, ...] = ()
     control_to_channel_edges: Tuple[Tuple[str, str], ...] = ()  # (control, channel) pairs
+
+
+def _resolve_data_format(data_df: pd.DataFrame) -> pd.DataFrame:
+    """Convert flat DataFrame with geo column to (date, geo) MultiIndex.
+
+    prepare_dataset_for_modeling() returns a flat DataFrame where 'geo' and
+    'time'/'date' are regular columns. discover_graph() expects a MultiIndex
+    so it can split geos correctly. Without this, all geos are concatenated
+    into a single 'national' pseudo-series, which breaks PCMCI and triggers
+    KCI instead of parcorr.
+
+    Normalises the time level name to 'date' for consistency with downstream
+    code that calls get_level_values('date').
+    """
+    if isinstance(data_df.index, pd.MultiIndex):
+        return data_df
+    time_col = next((c for c in ("date", "time") if c in data_df.columns), None)
+    if time_col is not None and "geo" in data_df.columns:
+        df = data_df.set_index([time_col, "geo"])
+        df.index.names = ["date", "geo"]
+        return df
+    return data_df
 
 
 def discover_graph(
@@ -108,6 +131,8 @@ def discover_graph(
         console = Console()
     if control_columns is None:
         control_columns = []
+
+    data_df = _resolve_data_format(data_df)
 
     start = time.perf_counter()
 
@@ -169,6 +194,7 @@ def discover_graph(
     # Run per-geo discovery
     per_geo_adj = {}
     per_geo_pval = {}
+    per_geo_qval = {}
 
     for geo in geos:
         if isinstance(data_df.index, pd.MultiIndex):
@@ -176,13 +202,15 @@ def discover_graph(
         else:
             geo_data = data_df[discovery_vars].values.astype(float)
 
-        adj, pval = _discover_single_geo(geo_data, n_vars, alpha, max_lag, ci_test)
+        adj, pval, qval = _discover_single_geo(geo_data, n_vars, alpha, max_lag, ci_test)
         per_geo_adj[geo] = adj
         per_geo_pval[geo] = pval
+        per_geo_qval[geo] = qval
 
-    # Consensus: majority vote
+    # Consensus: majority vote on BH-corrected q-matrix (edge decisions)
     stacked = np.stack(list(per_geo_adj.values()), axis=0)
     stacked_pval = np.stack(list(per_geo_pval.values()), axis=0)
+    stacked_qval = np.stack(list(per_geo_qval.values()), axis=0)
     agreement = stacked.mean(axis=0)
     consensus_adj = (agreement >= 0.5).astype(float)
 
@@ -194,11 +222,13 @@ def discover_graph(
         for cj in control_indices:
             consensus_adj[ci, cj] = 0
 
-    # Average p-values where edges exist
+    # Average p-values and q-values where edges exist
     with np.errstate(divide="ignore", invalid="ignore"):
         pval_sum = np.where(stacked > 0, stacked_pval, 0).sum(axis=0)
+        qval_sum = np.where(stacked > 0, stacked_qval, 0).sum(axis=0)
         edge_count = np.maximum(stacked.sum(axis=0), 1)
         consensus_pval = np.where(consensus_adj > 0, pval_sum / edge_count, 1.0)
+        consensus_qval = np.where(consensus_adj > 0, qval_sum / edge_count, 1.0)
 
     # ============================================================
     # Classify channels
@@ -246,6 +276,7 @@ def discover_graph(
     graph = CausalGraph(
         adjacency_matrix=consensus_adj,
         edge_pvalues=consensus_pval,
+        edge_qvalues=consensus_qval,
         variable_names=tuple(discovery_vars),
         direct_channels=tuple(direct),
         excluded_channels=tuple(excluded),
@@ -271,8 +302,12 @@ def _discover_single_geo(
     alpha: float,
     max_lag: int,
     ci_test: str,
-) -> Tuple[np.ndarray, np.ndarray]:
-    """Run discovery on a single geo. PCMCI primary, PC fallback, Granger last resort."""
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Run discovery on a single geo. PCMCI primary, PC fallback, Granger last resort.
+
+    Returns (adj, pval, qval). For PC and Granger fallbacks qval=pval (no FDR
+    correction available); this is documented and conservative.
+    """
     scaler = StandardScaler()
     data = scaler.fit_transform(data)
 
@@ -284,10 +319,12 @@ def _discover_single_geo(
             "Install with: pip install tigramite"
         )
         try:
-            return _pc_fallback(data, n_vars, alpha, max_lag, ci_test)
+            adj, pval = _pc_fallback(data, n_vars, alpha, max_lag, ci_test)
+            return adj, pval, pval  # qval=pval: no FDR correction in PC fallback
         except ImportError:
             warnings.warn("causal-learn not available either, using Granger causality")
-            return _granger_fallback(data, n_vars, alpha, max_lag)
+            adj, pval = _granger_fallback(data, n_vars, alpha, max_lag)
+            return adj, pval, pval  # qval=pval: no FDR correction in Granger fallback
 
 
 def _pcmci_discovery(
@@ -296,14 +333,14 @@ def _pcmci_discovery(
     alpha: float,
     max_lag: int,
     ci_test_name: str,
-) -> Tuple[np.ndarray, np.ndarray]:
-    """Primary discovery: PCMCI via tigramite.
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Primary discovery: PCMCI via tigramite with BH FDR correction.
 
     Lower false-positive rate than PC + temporal augmentation because:
     - MCI test conditions on parents of both endpoints → small conditioning
       sets regardless of variable count.
     - Handles time-series autocorrelation explicitly.
-    - Does not require building an augmented variable matrix.
+    - BH correction controls FDR across the ~n_vars² simultaneous CI tests.
 
     Parameters
     ----------
@@ -312,7 +349,7 @@ def _pcmci_discovery(
     n_vars : int
         Number of discovery variables (channels + controls + y).
     alpha : float
-        Significance threshold applied to raw MCI p-values.
+        Significance threshold applied to BH-corrected q-values.
     max_lag : int
         Maximum temporal lag (tau_max). tau_min is always 1 (lagged only).
     ci_test_name : str
@@ -322,9 +359,11 @@ def _pcmci_discovery(
     Returns
     -------
     adj : np.ndarray (n_vars, n_vars)
-        adj[i, j] = 1 if X_i(t-k) → X_j(t) for any k in 1..max_lag.
+        adj[i, j] = 1 if q_ij < alpha (BH-corrected decision).
     pval : np.ndarray (n_vars, n_vars)
-        Minimum MCI p-value across tested lags; 1.0 where no edge.
+        Minimum raw MCI p-value across lags; 1.0 where no edge. For display.
+    qval : np.ndarray (n_vars, n_vars)
+        Minimum BH q-value across lags; 1.0 where no edge. Used for prior calibration.
     """
     from tigramite import data_processing as pp
     from tigramite.pcmci import PCMCI
@@ -356,22 +395,33 @@ def _pcmci_discovery(
 
     # p_matrix[i, j, tau] = MCI p-value of X_i(t-tau) → X_j(t)
     # Shape: (n_vars, n_vars, tau_max+1); index 0 (contemporaneous) = 1.0
-    p_matrix = results["p_matrix"]  # (N, N, tau_max+1)
+    p_matrix = results["p_matrix"]
+
+    # BH correction across all (i, j, tau) tests — controls FDR, not FWER.
+    # Reference: Benjamini & Hochberg (1995), JRSS-B 57(1):289-300.
+    q_matrix = pcmci.get_corrected_pvalues(
+        p_matrix=p_matrix,
+        tau_min=1,
+        tau_max=max_lag,
+        fdr_method="fdr_bh",
+    )
 
     adj = np.zeros((n_vars, n_vars))
     pval = np.ones((n_vars, n_vars))
+    qval = np.ones((n_vars, n_vars))
 
     for i in range(n_vars):
         for j in range(n_vars):
             if i == j:
                 continue
-            # Minimum p-value across lags 1..max_lag
             min_p = float(p_matrix[i, j, 1 : max_lag + 1].min())
+            min_q = float(q_matrix[i, j, 1 : max_lag + 1].min())
             pval[i, j] = min_p
-            if min_p < alpha:
+            qval[i, j] = min_q
+            if min_q < alpha:   # edge decision uses BH-corrected q, not raw p
                 adj[i, j] = 1.0
 
-    return adj, pval
+    return adj, pval, qval
 
 
 def _pc_fallback(

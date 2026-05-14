@@ -47,11 +47,12 @@ from .cdnots_discovery import CausalGraph
 # Configuration
 # ============================================================
 
-# Max adjustment strength: 0=no effect, 0.5=moderate, 1.0=aggressive
-DAMPING = 0.5
-
-# Minimum multiplier floor (prevents prior-likelihood conflict)
-FLOOR = 0.4
+# Minimum sigma ratio for the spike component of the continuous spike-and-slab.
+# σ_adj = σ_base × (MIN_SIGMA_RATIO + (1 - MIN_SIGMA_RATIO) × PIP)
+# Value 0.4 prevents prior-likelihood conflict (R-hat > 1.8 observed with values < 0.3).
+# Derivation: docs/superpowers/specs/2026-05-13-cdnots-pipeline-fix-design.md
+MIN_SIGMA_RATIO = 0.4
+# DAMPING removed — new formula has no free parameters beyond MIN_SIGMA_RATIO.
 
 
 # ============================================================
@@ -95,26 +96,26 @@ def _path_min_confidence_pvalue(
 def _compute_sigma_multipliers(
     channel_columns: List[str],
     graph: CausalGraph,
-    damping: float = DAMPING,
-    floor: float = FLOOR,
 ) -> np.ndarray:
-    """Compute per-channel sigma multipliers as continuous function of p-values.
+    """Compute per-channel sigma multipliers via Empirical Bayes / spike-and-slab.
 
-    Parameters
+    Formula (same for all channel categories):
+        PIP  = 1 - q_value           (posterior inclusion probability, Storey 2002)
+        mult = MIN_SIGMA_RATIO + (1 - MIN_SIGMA_RATIO) × PIP
+
+    where q_value is the BH-corrected edge q-value from CausalGraph.edge_qvalues.
+    For mediated channels the weakest-link path q-value is used.
+
+    References
     ----------
-    channel_columns : List[str]
-        Channel column names (ordered).
-    graph : CausalGraph
-        Causal discovery results with p-values.
-    damping : float
-        Maximum adjustment factor.
-    floor : float
-        Minimum multiplier to prevent MCMC conflict.
+    Storey (2002) JRSS-B 64(3):479-498 — q-value as P(H0|data).
+    Efron (2010) Large-Scale Inference, Ch. 5 — PIP = 1 - q.
+    Ishwaran & Rao (2005) Ann.Stat. 33(2):730-773 — continuous spike-and-slab.
 
     Returns
     -------
     np.ndarray
-        Multipliers array of shape (n_channels,).
+        Multipliers in [MIN_SIGMA_RATIO, 1.0] of shape (n_channels,).
     """
     n_channels = len(channel_columns)
     multipliers = np.ones(n_channels)
@@ -124,36 +125,30 @@ def _compute_sigma_multipliers(
         if ch in graph.variable_names:
             ch_idx = graph.variable_names.index(ch)
             has_direct = graph.adjacency_matrix[ch_idx, y_idx] > 0
+
             if has_direct:
-                p_value = graph.edge_pvalues[ch_idx, y_idx]
+                q_value = float(graph.edge_qvalues[ch_idx, y_idx])
             elif ch in graph.mediated_channels:
-                # Indirect path: use the weakest link's p-value along the
-                # most confident path to y. Mediated confidence is bounded
-                # by its flimsiest mediating edge.
-                p_value = _path_min_confidence_pvalue(
-                    graph.adjacency_matrix, graph.edge_pvalues, ch_idx, y_idx
+                # Mediated: weakest-link q along the most confident path to y.
+                q_value = _path_min_confidence_pvalue(
+                    graph.adjacency_matrix, graph.edge_qvalues, ch_idx, y_idx
                 )
             else:
-                p_value = 1.0
+                # Excluded: high q → low PIP → multiplier near MIN_SIGMA_RATIO.
+                q_value = float(graph.edge_qvalues[ch_idx, y_idx])
         else:
-            p_value = 1.0
+            q_value = 1.0
 
-        confidence = np.clip(1.0 - p_value, 0.0, 1.0)
-        has_path = (ch in graph.direct_channels) or (ch in graph.mediated_channels)
+        # PIP = P(H1 | data) under BH empirical Bayes model
+        pip = float(np.clip(1.0 - q_value, 0.0, 1.0))
+        multipliers[i] = MIN_SIGMA_RATIO + (1.0 - MIN_SIGMA_RATIO) * pip
 
-        if has_path:
-            multipliers[i] = 1.0 + damping * confidence
-        else:
-            multipliers[i] = max(floor, 1.0 - damping * confidence)
-
-        # Endogeneity penalty (Data-Driven): if a control confounds this channel,
-        # shrink its prior proportionately to the variance explained by the control (R2).
-        # We use Tolerance = 1 - R2 as the shrinkage factor.
+        # Endogeneity penalty: control → channel confounding shrinks prior
+        # proportional to R² (variance explained by confounder).
         if hasattr(graph, 'endogenous_r2') and ch in graph.endogenous_r2:
             r2 = graph.endogenous_r2[ch]
-            tolerance = max(0.1, 1.0 - r2)  # shrink by R2, min 10% tolerance
-            multipliers[i] *= tolerance
-            multipliers[i] = max(floor, multipliers[i])
+            tolerance = max(MIN_SIGMA_RATIO, 1.0 - r2)
+            multipliers[i] = max(MIN_SIGMA_RATIO, multipliers[i] * tolerance)
 
     return multipliers
 
@@ -161,49 +156,43 @@ def _compute_sigma_multipliers(
 def _compute_adstock_params(
     channel_columns: List[str],
     graph: CausalGraph,
-    damping: float = DAMPING,
 ) -> Tuple[np.ndarray, np.ndarray]:
-    """Compute per-channel Beta(a, b) for adstock prior.
+    """Compute per-channel Beta(a, b) for adstock prior using PIP from q-values.
 
-    Channels with stronger causal evidence get more flexible adstock.
+    Beta(1, alpha_b): lower alpha_b → more uniform (flexible decay);
+                      higher alpha_b → concentrated near 0 (fast decay).
+    BASE_B=3.0 is the neutral prior; MIN_B=1.0 is maximally flexible (Uniform).
+    Channels with high PIP get more flexible adstock (lower alpha_b).
 
     Returns
     -------
     tuple
         (alpha_a, alpha_b) arrays of shape (n_channels,)
     """
+    BASE_B, MIN_B = 3.0, 1.0
     n_channels = len(channel_columns)
     alpha_a = np.ones(n_channels)
-    alpha_b = np.full(n_channels, 3.0)
+    alpha_b = np.full(n_channels, BASE_B)
     y_idx = len(graph.variable_names) - 1
 
     for i, ch in enumerate(channel_columns):
         if ch in graph.variable_names:
             ch_idx = graph.variable_names.index(ch)
             has_direct = graph.adjacency_matrix[ch_idx, y_idx] > 0
+
             if has_direct:
-                p_value = graph.edge_pvalues[ch_idx, y_idx]
+                q_value = float(graph.edge_qvalues[ch_idx, y_idx])
             elif ch in graph.mediated_channels:
-                # Indirect path: use the weakest link's p-value along the
-                # most confident path to y. Mediated confidence is bounded
-                # by its flimsiest mediating edge.
-                p_value = _path_min_confidence_pvalue(
-                    graph.adjacency_matrix, graph.edge_pvalues, ch_idx, y_idx
+                q_value = _path_min_confidence_pvalue(
+                    graph.adjacency_matrix, graph.edge_qvalues, ch_idx, y_idx
                 )
             else:
-                p_value = 1.0
+                q_value = 1.0
         else:
-            p_value = 1.0
+            q_value = 1.0
 
-        confidence = np.clip(1.0 - p_value, 0.0, 1.0)
-        has_path = (ch in graph.direct_channels) or (ch in graph.mediated_channels)
-
-        if has_path:
-            alpha_b[i] = 3.0 - damping * confidence * 2.0
-        else:
-            alpha_b[i] = 3.0 + damping * confidence * 1.0
-
-        alpha_b[i] = np.clip(alpha_b[i], 1.0, 5.0)
+        pip = float(np.clip(1.0 - q_value, 0.0, 1.0))
+        alpha_b[i] = float(np.clip(BASE_B - (BASE_B - MIN_B) * pip, MIN_B, 5.0))
 
     return alpha_a, alpha_b
 
@@ -217,11 +206,10 @@ def build_pymc_model_with_graph(
     channel_columns: List[str],
     control_columns: List[str],
     graph: CausalGraph,
-    damping: float = DAMPING,
 ) -> MMM:
-    """Build PyMC-Marketing model with probabilistic priors from causal graph."""
+    """Build PyMC-Marketing model with Empirical Bayes priors from causal graph."""
     prior_sigma = model_builder.calculate_prior_sigma(data_df, channel_columns)
-    multipliers = _compute_sigma_multipliers(channel_columns, graph, damping=damping)
+    multipliers = _compute_sigma_multipliers(channel_columns, graph)
     adjusted_sigma = prior_sigma * multipliers[np.newaxis, :]
 
     _log_adjustments(channel_columns, multipliers, graph)
@@ -239,7 +227,7 @@ def build_pymc_model_with_graph(
         },
     )
 
-    _, alpha_b = _compute_adstock_params(channel_columns, graph, damping=damping)
+    _, alpha_b = _compute_adstock_params(channel_columns, graph)
     adstock = GeometricAdstock(
         l_max=8,
         priors={"alpha": Prior("Beta", alpha=1, beta=alpha_b.tolist(), dims=("channel",))},
@@ -286,11 +274,10 @@ def build_meridian_model_with_graph(
     channel_columns: List[str],
     control_columns: List[str],
     graph: CausalGraph,
-    damping: float = DAMPING,
 ) -> model.Meridian:
-    """Build Meridian model with probabilistic priors from causal graph."""
+    """Build Meridian model with Empirical Bayes priors from causal graph."""
     prior_sigma = model_builder.calculate_prior_sigma(data_df, channel_columns)
-    multipliers = _compute_sigma_multipliers(channel_columns, graph, damping=damping)
+    multipliers = _compute_sigma_multipliers(channel_columns, graph)
     mean_sigma = prior_sigma.mean(axis=0) * multipliers
 
     _log_adjustments(channel_columns, multipliers, graph)
@@ -302,7 +289,7 @@ def build_meridian_model_with_graph(
     )
     beta_m_mu, beta_m_sigma = zip(*beta_m)
 
-    alpha_a, alpha_b = _compute_adstock_params(channel_columns, graph, damping=damping)
+    alpha_a, alpha_b = _compute_adstock_params(channel_columns, graph)
 
     prior = prior_distribution.PriorDistribution(
         beta_m=tfp.distributions.LogNormal(
@@ -329,21 +316,22 @@ def _log_adjustments(
     """Print adjustment summary for transparency and debugging."""
     y_idx = len(graph.variable_names) - 1
 
-    print(f"\n  Prior adjustments (damping={DAMPING}, floor={FLOOR}):")
+    print(f"\n  Prior adjustments (MIN_SIGMA_RATIO={MIN_SIGMA_RATIO}, formula: σ×(0.4+0.6×PIP)):")
     for i, ch in enumerate(channel_columns):
         if ch in graph.variable_names:
             ch_idx = graph.variable_names.index(ch)
-            p_val = graph.edge_pvalues[ch_idx, y_idx]
+            q_val = float(graph.edge_qvalues[ch_idx, y_idx])
+            p_val = float(graph.edge_pvalues[ch_idx, y_idx])
         else:
-            p_val = 1.0
+            q_val = p_val = 1.0
 
+        pip = round(1.0 - q_val, 3)
         category = (
             "direct" if ch in graph.direct_channels
             else "mediated" if ch in graph.mediated_channels
             else "excluded"
         )
-        direction = "↑" if multipliers[i] > 1.0 else "↓" if multipliers[i] < 1.0 else "="
         print(
-            f"    {ch:>30s}: σ×{multipliers[i]:.3f} {direction}  "
-            f"(p={p_val:.4f}, {category})"
+            f"    {ch:>30s}: σ×{multipliers[i]:.3f}  "
+            f"(p={p_val:.4f}, q={q_val:.4f}, PIP={pip:.3f}, {category})"
         )
