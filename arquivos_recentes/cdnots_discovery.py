@@ -385,7 +385,7 @@ def _pcmci_discovery(
         # Requires numba; falls back to ParCorr if numba is broken/missing.
         try:
             from tigramite.independence_tests.cmiknn import CMIknn
-            cond_ind_test = CMIknn(knn=5)
+            cond_ind_test = CMIknn(knn=5, null_fit=True, sig_samples=200)
         except (ImportError, AttributeError):
             warnings.warn(
                 "CMIknn unavailable (numba not importable). "
@@ -397,8 +397,23 @@ def _pcmci_discovery(
     dataframe = pp.DataFrame(data[:, :n_vars], var_names=list(range(n_vars)))
     pcmci = PCMCI(dataframe=dataframe, cond_ind_test=cond_ind_test, verbosity=0)
 
+    # B: build targeted link_assumptions when structural info is available
+    link_assumptions = None
+    if n_channels > 0:
+        link_assumptions = _build_mmm_link_assumptions(
+            n_channels, n_controls, n_vars, max_lag
+        )
+
+    # A: max_conds_dim=4 caps k-NN dimensionality (curse of dimensionality);
+    # link_assumptions restricts the PC and MCI phases to MMM-relevant edges.
     # tau_min=1: only lagged links — contemporaneous edges are ambiguous in MMM
-    results = pcmci.run_pcmci(tau_max=max_lag, tau_min=1, pc_alpha=alpha)
+    results = pcmci.run_pcmci(
+        tau_max=max_lag,
+        tau_min=1,
+        pc_alpha=alpha,
+        max_conds_dim=4,
+        link_assumptions=link_assumptions,
+    )
 
     # p_matrix[i, j, tau] = MCI p-value of X_i(t-tau) → X_j(t)
     # Shape: (n_vars, n_vars, tau_max+1); index 0 (contemporaneous) = 1.0
