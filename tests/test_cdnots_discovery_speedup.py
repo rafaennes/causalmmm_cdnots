@@ -1,4 +1,4 @@
-"""Tests for CMIknn speedup changes in cdnots_discovery.py."""
+"""Unit tests for _build_mmm_link_assumptions in cdnots_discovery.py."""
 import sys, os
 import numpy as np
 import pytest
@@ -21,19 +21,15 @@ def _load(name, filepath):
     spec.loader.exec_module(mod)
     return mod
 
-disc = _load("cdnots_discovery", os.path.join(ARQUIVOS, "cdnots_discovery.py"))
 
-
-# ── helpers ──────────────────────────────────────────────────────────────────
-
-def _small_data(n_vars=6, T=80, seed=0):
-    rng = np.random.default_rng(seed)
-    return rng.standard_normal((T, n_vars)).astype(np.float64)
+@pytest.fixture(scope="module")
+def disc():
+    return _load("cdnots_discovery", os.path.join(ARQUIVOS, "cdnots_discovery.py"))
 
 
 # ── Task 1 tests: _build_mmm_link_assumptions ────────────────────────────────
 
-def test_y_receives_from_all_channels_and_controls():
+def test_y_receives_from_all_channels_and_controls(disc):
     """y_idx must accept edges from every channel and control, at all lags."""
     n_ch, n_ctrl, n_vars, max_lag = 4, 1, 6, 2
     la = disc._build_mmm_link_assumptions(n_ch, n_ctrl, n_vars, max_lag)
@@ -41,9 +37,11 @@ def test_y_receives_from_all_channels_and_controls():
     for i in range(n_vars - 1):
         for tau in range(1, max_lag + 1):
             assert (i, -tau) in la[y_idx], f"missing ({i}, -{tau}) in y targets"
+    assert len(la[y_idx]) == (n_vars - 1) * max_lag, \
+        f"expected {(n_vars-1)*max_lag} edges to y, got {len(la[y_idx])}"
 
 
-def test_channel_receives_from_channels_and_controls():
+def test_channel_receives_from_channels_and_controls(disc):
     """Each channel must accept edges from all other channels and all controls."""
     n_ch, n_ctrl, n_vars, max_lag = 4, 1, 6, 2
     la = disc._build_mmm_link_assumptions(n_ch, n_ctrl, n_vars, max_lag)
@@ -55,8 +53,9 @@ def test_channel_receives_from_channels_and_controls():
                 assert (i, -tau) in la[j], f"channel {j}: missing ({i}, -{tau})"
 
 
-def test_controls_have_no_incoming_edges():
-    """Controls are exogenous — their link_assumptions dict must be empty."""
+def test_controls_have_no_incoming_edges(disc):
+    """Controls are exogenous — their link_assumptions dict must be empty.
+    An empty dict already implies channels (and all other variables) cannot cause controls."""
     n_ch, n_ctrl, n_vars, max_lag = 4, 2, 7, 2
     la = disc._build_mmm_link_assumptions(n_ch, n_ctrl, n_vars, max_lag)
     ctrl_indices = list(range(n_ch, n_ch + n_ctrl))
@@ -64,7 +63,7 @@ def test_controls_have_no_incoming_edges():
         assert la[j] == {}, f"control {j} should have no incoming edges, got {la[j]}"
 
 
-def test_y_is_never_a_source():
+def test_y_is_never_a_source(disc):
     """y must not appear as a source (i) in any target's link dict."""
     n_ch, n_ctrl, n_vars, max_lag = 4, 1, 6, 2
     la = disc._build_mmm_link_assumptions(n_ch, n_ctrl, n_vars, max_lag)
@@ -74,18 +73,7 @@ def test_y_is_never_a_source():
             assert i != y_idx, f"y ({y_idx}) appears as source for target {j}"
 
 
-def test_channels_do_not_cause_controls():
-    """Channels must not appear in the incoming-edge dicts of controls."""
-    n_ch, n_ctrl, n_vars, max_lag = 4, 2, 7, 2
-    la = disc._build_mmm_link_assumptions(n_ch, n_ctrl, n_vars, max_lag)
-    ctrl_indices = list(range(n_ch, n_ch + n_ctrl))
-    ch_indices   = list(range(n_ch))
-    for j in ctrl_indices:
-        for (i, _tau) in la[j]:
-            assert i not in ch_indices, f"channel {i} → control {j} must be excluded"
-
-
-def test_link_type_is_question_arrow():
+def test_link_type_is_question_arrow(disc):
     """Every allowed edge must use the '?->' (uncertain-directed) link type."""
     n_ch, n_ctrl, n_vars, max_lag = 3, 1, 5, 1
     la = disc._build_mmm_link_assumptions(n_ch, n_ctrl, n_vars, max_lag)
