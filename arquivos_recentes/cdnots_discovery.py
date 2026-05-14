@@ -95,6 +95,7 @@ def discover_graph(
     max_geos: int = 5,
     ci_test: str = "auto",
     console: Optional[Console] = None,
+    max_conds_dim: Optional[int] = None,
 ) -> CausalGraph:
     """Run causal discovery on benchmark MMM data.
 
@@ -121,6 +122,10 @@ def discover_graph(
         "parcorr" ou "kci" explicitamente.
     console : Optional[Console]
         Rich console for output.
+    max_conds_dim : Optional[int], optional
+        Maximum conditioning set size for PCMCI. None (default) lets PCMCI
+        adapt automatically; set to 4 to cap k-NN dimensionality for speed
+        at the cost of some recall on large variable sets.
 
     Returns
     -------
@@ -203,7 +208,8 @@ def discover_graph(
             geo_data = data_df[discovery_vars].values.astype(float)
 
         adj, pval, qval = _discover_single_geo(
-            geo_data, n_vars, alpha, max_lag, ci_test, n_channels, n_controls
+            geo_data, n_vars, alpha, max_lag, ci_test, n_channels, n_controls,
+            max_conds_dim=max_conds_dim,
         )
         per_geo_adj[geo] = adj
         per_geo_pval[geo] = pval
@@ -306,6 +312,7 @@ def _discover_single_geo(
     ci_test: str,
     n_channels: int = 0,
     n_controls: int = 0,
+    max_conds_dim: Optional[int] = None,
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Run discovery on a single geo. PCMCI primary, PC fallback, Granger last resort.
 
@@ -317,7 +324,7 @@ def _discover_single_geo(
 
     try:
         return _pcmci_discovery(data, n_vars, alpha, max_lag, ci_test,
-                                n_channels, n_controls)
+                                n_channels, n_controls, max_conds_dim)
     except ImportError:
         warnings.warn(
             "tigramite not available, falling back to PC + temporal augmentation. "
@@ -340,6 +347,7 @@ def _pcmci_discovery(
     ci_test_name: str,
     n_channels: int = 0,
     n_controls: int = 0,
+    max_conds_dim: Optional[int] = None,
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Primary discovery: PCMCI via tigramite with BH FDR correction.
 
@@ -404,14 +412,15 @@ def _pcmci_discovery(
             n_channels, n_controls, n_vars, max_lag
         )
 
-    # A: max_conds_dim=4 caps k-NN dimensionality (curse of dimensionality);
+    # A: max_conds_dim caps k-NN conditioning set size (curse of dimensionality).
+    # None lets PCMCI adapt automatically; an explicit value trades recall for speed.
     # link_assumptions restricts the PC and MCI phases to MMM-relevant edges.
     # tau_min=1: only lagged links — contemporaneous edges are ambiguous in MMM
     results = pcmci.run_pcmci(
         tau_max=max_lag,
         tau_min=1,
         pc_alpha=alpha,
-        max_conds_dim=4,
+        max_conds_dim=max_conds_dim,
         link_assumptions=link_assumptions,
     )
 
@@ -577,7 +586,7 @@ def _build_mmm_link_assumptions(
             for lag in lags:
                 la[j][(i, lag)] = "?->"
 
-    # controls and y stay empty: no incoming edges
+    # controls stay empty — they are exogenous: no incoming edges allowed
 
     return la
 

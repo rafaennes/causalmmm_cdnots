@@ -1,10 +1,14 @@
 """Unit tests for _build_mmm_link_assumptions in cdnots_discovery.py."""
 import sys, os
+import time
 import numpy as np
 import pytest
 
 CAUSALMMM_ROOT = os.path.join(os.path.dirname(__file__), "..")
-PYMC_ROOT      = "/home/ennes/mestrado/pymc_meridian_comparison"
+PYMC_ROOT = os.environ.get(
+    "PYMC_MERIDIAN_ROOT",
+    "/home/ennes/mestrado/pymc_meridian_comparison",
+)
 ARQUIVOS       = os.path.join(CAUSALMMM_ROOT, "arquivos_recentes")
 
 for p in [PYMC_ROOT, CAUSALMMM_ROOT]:
@@ -155,9 +159,10 @@ def test_discover_graph_completes_on_small_business_parcorr(disc):
     assert total == len(ch_cols), "every channel must be classified"
 
 
+@pytest.mark.slow
 def test_cmiknn_runtime_improvement(disc):
     """CMIknn with new params should complete in under 60s on 10-var, 100-row data."""
-    import time
+    pytest.importorskip("numba", reason="CMIknn requires numba")
     n_vars, n_ch, n_ctrl = 10, 8, 1
     data = _small_data(n_vars=n_vars, T=100, seed=7)
     t0 = time.perf_counter()
@@ -169,3 +174,16 @@ def test_cmiknn_runtime_improvement(disc):
     elapsed = time.perf_counter() - t0
     assert elapsed < 60, f"CMIknn took {elapsed:.1f}s — expected < 60s with new params"
     assert adj.shape == (n_vars, n_vars)
+
+
+def test_zero_controls_y_receives_only_from_channels(disc):
+    """With n_controls=0, y should only receive edges from channels."""
+    n_ch, n_ctrl, n_vars, max_lag = 4, 0, 5, 1
+    la = disc._build_mmm_link_assumptions(n_ch, n_ctrl, n_vars, max_lag)
+    y_idx = n_vars - 1
+    # y receives from channels only (no controls)
+    assert len(la[y_idx]) == n_ch * max_lag, \
+        f"expected {n_ch * max_lag} edges to y, got {len(la[y_idx])}"
+    # no spurious edges from y itself
+    for (i, _tau) in la[y_idx]:
+        assert i < n_ch, f"non-channel source {i} in y's incoming edges"
