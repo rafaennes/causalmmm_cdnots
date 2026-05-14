@@ -80,3 +80,92 @@ def test_link_type_is_question_arrow(disc):
     for j, incoming in la.items():
         for key, ltype in incoming.items():
             assert ltype == "?->", f"unexpected link type {ltype!r} at target {j} key {key}"
+
+
+# ── helpers ───────────────────────────────────────────────────────────────────
+
+def _small_data(n_vars=6, T=80, seed=0):
+    rng = np.random.default_rng(seed)
+    return rng.standard_normal((T, n_vars)).astype(np.float64)
+
+
+# ── Integration tests ─────────────────────────────────────────────────────────
+
+def test_pcmci_discovery_returns_correct_shapes(disc):
+    """_pcmci_discovery must return (adj, pval, qval) of shape (n_vars, n_vars)."""
+    n_vars, n_ch, n_ctrl = 6, 4, 1
+    data = _small_data(n_vars=n_vars, T=80)
+    adj, pval, qval = disc._pcmci_discovery(
+        data, n_vars, alpha=0.1, max_lag=1,
+        ci_test_name="parcorr",
+        n_channels=n_ch, n_controls=n_ctrl,
+    )
+    assert adj.shape  == (n_vars, n_vars)
+    assert pval.shape == (n_vars, n_vars)
+    assert qval.shape == (n_vars, n_vars)
+
+
+def test_pcmci_discovery_y_has_no_outgoing_edges(disc):
+    """After discovery, y (last var) must never appear as a source in adj."""
+    n_vars, n_ch, n_ctrl = 6, 4, 1
+    data = _small_data(n_vars=n_vars, T=80)
+    adj, _, _ = disc._pcmci_discovery(
+        data, n_vars, alpha=0.1, max_lag=1,
+        ci_test_name="parcorr",
+        n_channels=n_ch, n_controls=n_ctrl,
+    )
+    y_idx = n_vars - 1
+    assert adj[y_idx, :].sum() == 0, "y must not cause any variable"
+
+
+def test_pcmci_discovery_controls_have_no_incoming(disc):
+    """Controls (indices n_ch .. n_ch+n_ctrl-1) must have no incoming edges."""
+    n_vars, n_ch, n_ctrl = 6, 4, 1
+    data = _small_data(n_vars=n_vars, T=80)
+    adj, _, _ = disc._pcmci_discovery(
+        data, n_vars, alpha=0.1, max_lag=1,
+        ci_test_name="parcorr",
+        n_channels=n_ch, n_controls=n_ctrl,
+    )
+    ctrl_idxs = list(range(n_ch, n_ch + n_ctrl))
+    for c in ctrl_idxs:
+        assert adj[:, c].sum() == 0, f"control {c} must have no incoming edges"
+
+
+def test_discover_graph_completes_on_small_business_parcorr(disc):
+    """End-to-end: discover_graph on small_business with parcorr returns a CausalGraph."""
+    from mmm_param_recovery.data_generator.core import generate_mmm_dataset
+    from mmm_param_recovery.data_generator.presets import get_preset_config
+    from mmm_param_recovery.benchmarking.data_loader import prepare_dataset_for_modeling
+
+    config = get_preset_config("small_business", seed=42)
+    result = generate_mmm_dataset(config)
+    data_df, ch_cols, ctrl_cols, _ = prepare_dataset_for_modeling(result)
+
+    graph = disc.discover_graph(
+        data_df, ch_cols,
+        control_columns=ctrl_cols,
+        alpha=0.05, max_lag=1,
+        ci_test="parcorr",
+    )
+
+    assert len(graph.variable_names) == len(ch_cols) + len(ctrl_cols) + 1
+    total = (len(graph.direct_channels) + len(graph.mediated_channels)
+             + len(graph.excluded_channels))
+    assert total == len(ch_cols), "every channel must be classified"
+
+
+def test_cmiknn_runtime_improvement(disc):
+    """CMIknn with new params should complete in under 60s on 10-var, 100-row data."""
+    import time
+    n_vars, n_ch, n_ctrl = 10, 8, 1
+    data = _small_data(n_vars=n_vars, T=100, seed=7)
+    t0 = time.perf_counter()
+    adj, pval, qval = disc._pcmci_discovery(
+        data, n_vars, alpha=0.1, max_lag=1,
+        ci_test_name="kci",
+        n_channels=n_ch, n_controls=n_ctrl,
+    )
+    elapsed = time.perf_counter() - t0
+    assert elapsed < 60, f"CMIknn took {elapsed:.1f}s — expected < 60s with new params"
+    assert adj.shape == (n_vars, n_vars)
