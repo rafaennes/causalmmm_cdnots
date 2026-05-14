@@ -46,8 +46,8 @@ O Marketing Mix Modeling (MMM) é uma técnica amplamente utilizada para avaliar
    - 6.3 Métricas de Avaliação
 7. Desenvolvimento (MVP)
    - 7.1 Módulo de Descoberta Causal (CD-NOTS)
-   - 7.2 Módulo de Tradução Grafo → Priors
-   - 7.3 Integração com PyMC-Marketing e Meridian
+   - 7.2 Módulo de Calibração de Priors (Empirical Bayes)
+   - 7.3 Geração do Dataset com Estrutura Causal Conhecida
    - 7.4 Framework de Benchmark
 8. Validação
 9. Resultados
@@ -205,6 +205,18 @@ Sadeghi, Gopal & Fesanghary (2024) propõem o CD-NOTS, que estende o CD-NOD (HUA
 
 As suposições do CD-NOTS são: suficiência causal (confounders expressos como função suave do tempo), faithfulness, randomness, e consistência causal temporal. O CD-NOTS é não-paramétrico, capturando relações lineares e não-lineares, e a recomendação empírica do paper é ParCorr para N < 200 observações e KCIT/RCoT para N > 200 — compatível com dados típicos de MMM semanal.
 
+**Implementação e seleção adaptativa do teste de independência condicional**
+
+O presente trabalho implementa o CD-NOTS por meio da biblioteca tigramite (RUNGE, 2020), que fornece o PCMCI como motor de descoberta. O PCMCI aplica o teste MCI (Momentary Conditional Independence), que condiciona simultaneamente nos pais causais de ambas as variáveis testadas — mantendo os conjuntos de condicionamento pequenos independentemente do número de variáveis, ao contrário do algoritmo PC clássico, que sofre explosão combinatória em grafos com mais de 6–8 variáveis.
+
+A seleção do teste de independência condicional é adaptativa ao número de séries temporais disponíveis. Para cenários multi-geo (dois ou mais geos), emprega-se ParCorr (correlação parcial com estatística Fisher-Z), 100 a 1000× mais rápido que métodos kernel. A replicação entre geos compensa em parte a pressuposição de linearidade: efeitos de adstock e saturação são aproximadamente lineares nos segmentos observacionais de dados de marketing semanal com N ≥ 100 observações por geo. Para cenários single-geo, emprega-se CMIknn (estimador k-NN de informação mútua condicional), não-paramétrico, capaz de capturar não-linearidades de adstock e saturação sem pressuposição de normalidade. O custo computacional O(N³) é aceitável com N ≤ 200 observações.
+
+**Problema de múltiplos testes e correção de Benjamini-Hochberg**
+
+O PCMCI realiza testes de independência condicional para cada par (i, j) de variáveis e cada defasagem τ ∈ {1, ..., τ_max}. Com 10 variáveis de descoberta (8 canais + 1 controle + y) e τ_max = 2, o número de testes simultâneos é da ordem de 10 × 10 × 2 = 200. A um nível de significância α = 0,05, esperam-se aproximadamente 10 falsos positivos sob a hipótese nula global — número inaceitável para um grafo com esparsidade esperada de 5–15 arestas verdadeiras.
+
+Aplica-se a correção de Benjamini-Hochberg (BH; 1995) via `pcmci.get_corrected_pvalues(fdr_method="fdr_bh")`, que controla a taxa de falsas descobertas (FDR = E[FP/(FP+TP)]) ao nível nominal. O BH é preferível ao controle de FWER (Bonferroni, Holm) em descoberta causal porque aceita alguns falsos positivos em troca de maior poder de detecção — apropriado para grafos esparsos onde cada aresta verdadeira tem valor informativo (BENJAMINI; HOCHBERG, 1995). Os q-values BH-corrigidos são armazenados em `CausalGraph.edge_qvalues` e consumidos pelo módulo de calibração de priors, enquanto os p-values brutos são retidos em `CausalGraph.edge_pvalues` para fins de transparência e debug.
+
 ### 4.4.4 Métodos de Deep Learning para Descoberta Causal
 
 Tank et al. (2022) propõem Neural Granger Causality com arquiteturas cMLP e cLSTM. Pamfil et al. (2020) introduzem DYNOTEARS, método score-based para redes Bayesianas dinâmicas. Löwe et al. (2022) propõem amortized causal discovery via inferência variacional. Gong et al. (2024) integram Graph VAE com Gumbel-Softmax para descoberta causal end-to-end em MMM. Estes métodos requerem volumes de dados significativamente maiores que métodos constraint-based.
@@ -271,12 +283,13 @@ A contribuição metodológica central desta pesquisa é um pipeline de três es
 
 **Estágio 1 — Descoberta de Topologia (CD-NOTS):** A partir dos dados observacionais de marketing (séries temporais de investimento por canal e variável de resposta), CD-NOTS identifica a estrutura causal conjunta, incluindo: relações diretas canal → vendas, relações mediadas canal → canal → vendas, canais sem caminho causal para a variável de resposta, e relações não-estacionárias capturadas pelo nó temporal T. O CD-NOTS é particularmente adequado para dados de MMM por ser não-paramétrico e funcionar com 50-200 observações temporais (regime típico de MMM semanal).
 
-**Estágio 2 — Tradução para Priors Estruturais:** O grafo G = (V, E) descoberto é traduzido em modificações concretas na especificação do modelo Bayesiano:
+**Estágio 2 — Tradução para Priors Estruturais via Empirical Bayes:** O grafo G = (V, E) descoberto é traduzido em modificações de priors utilizando o arcabouço de Empirical Bayes para testes múltiplos (STOREY, 2002; EFRON, 2010). O q-value BH-corrigido para cada aresta canal → vendas aproxima P(H₀ | dados), de modo que a probabilidade de inclusão posterior (PIP = 1 − q) aproxima P(efeito causal real | dados). Esta ponte conecta formalmente a descoberta causal com quantidade Bayesiana interpretável.
 
-- Canais com aresta direta forte para vendas: priors com variância maior (menos regularização, deixa os dados informar a magnitude)
-- Canais sem caminho causal identificado: priors com variância muito pequena (forte regularização para zero — seleção de variáveis soft)
-- Canais com efeitos mediados: priors com variância intermediária
-- Para adstock: canais com efeitos defasados no CD-NOTS recebem priors de decay mais lentos; canais com efeitos apenas contemporâneos recebem priors de decay rápido
+O desvio-padrão do prior de cada canal é ajustado via relaxação contínua do spike-and-slab (ISHWARAN; RAO, 2005):
+
+σ_adj = σ_base × (MIN_SIGMA_RATIO + (1 − MIN_SIGMA_RATIO) × PIP)
+
+Onde MIN_SIGMA_RATIO = 0,4 representa a largura mínima do componente spike (empiricamente validado: valores abaixo de 0,3 causam conflito prior-verossimilhança com R-hat > 1,8). Esta formulação é simétrica para canais diretos, mediados e excluídos — a diferença entre categorias está no q-value utilizado, não na direção da fórmula. Para adstock, o PIP modula o parâmetro b da distribuição Beta(1, b): canais causalmente confirmados recebem priors mais flexíveis (b menor, distribuição mais uniforme); canais excluídos recebem prior de decaimento rápido (b maior).
 
 **Estágio 3 — Modelagem Bayesiana Informada:** O modelo Bayesiano (PyMC-Marketing ou Meridian) é estimado com os priors calibrados pelo grafo. Se resultados experimentais estiverem disponíveis, podem ser incorporados como camada adicional sobre a estrutura descoberta.
 
@@ -315,27 +328,196 @@ A comparação entre braços 1 vs 3 e 2 vs 4 isola o efeito da descoberta causal
 
 # 7. Desenvolvimento (MVP)
 
-## 7.1 Módulo de Descoberta Causal (CD-NOTS)
+## 7.1 Módulo de Descoberta Causal (`cdnots_discovery.py`)
 
-[Descrição técnica do cdnots_graph_discovery.py — já implementado]
+O módulo implementa o pipeline de descoberta causal que recebe dados de marketing, detecta o formato de entrada, executa PCMCI por geo, aplica correção de FDR, e retorna um grafo de consenso com canais classificados em diretos, mediados e excluídos.
 
-O módulo recebe dados no formato MultiIndex (date, geo), executa CD-NOTS por geo com fallback para causal-learn PC algorithm e Granger causality, constrói grafo de consenso via votação majoritária, e retorna CausalGraphResult com matriz de adjacência, forças de arestas, canais diretos/excluídos/mediados.
+### 7.1.1 Estrutura de Dados: `CausalGraph`
 
-## 7.2 Módulo de Tradução Grafo → Priors
+O resultado da descoberta é encapsulado no dataclass imutável `CausalGraph`, com os seguintes campos principais:
 
-[Descrição técnica do graph_informed_model_builder.py — já implementado]
+- `adjacency_matrix` (n_vars × n_vars): matriz binária onde `adj[i,j] = 1` se a aresta i → j foi detectada no consenso
+- `edge_pvalues`: p-values MCI brutos, retidos para transparência e debug
+- `edge_qvalues`: q-values BH-corrigidos, consumidos pelo módulo de calibração de priors
+- `variable_names`: sequência de canais + controles + "y" (ordem corresponde às linhas/colunas das matrizes)
+- `direct_channels`, `mediated_channels`, `excluded_channels`: classificação de canais
+- `endogenous_channels`, `endogenous_r2`: canais confundidos por variável de controle e R² correspondente
+- `ci_test_used`: "parcorr" ou "kci", para auditabilidade dos resultados
 
-O módulo traduz CausalGraphResult em modificações de priors para PyMC-Marketing (sigma do HalfNormal × 1.2 para diretos, × 0.8 para mediados, × 0.1 para excluídos) e Meridian (sigma do LogNormal + ajuste de alpha_m Beta para adstock).
+A distinção entre `edge_pvalues` e `edge_qvalues` é central: a versão anterior do módulo utilizava p-values brutos tanto para decisão de inclusão de arestas quanto para calibração de priors, o que violava o controle de múltiplos testes e produzia FDR = 73% no preset `causal_business`.
 
-## 7.3 Integração com PyMC-Marketing e Meridian
+### 7.1.2 Resolução de Formato: `_resolve_data_format`
 
-[Descrição de fit_pymc_with_cdnots e fit_meridian_with_cdnots — já implementados]
+A função `prepare_dataset_for_modeling` do framework de benchmark retorna um DataFrame com colunas `"time"` e `"geo"` no índice regular — não em MultiIndex. O módulo de descoberta espera os dados separados por geo. Sem conversão explícita, todos os 4 geos × 156 semanas = 624 linhas eram concatenados em uma única pseudo-série "nacional", introduzindo dependências temporais artificiais nas fronteiras entre geos e causando FDR elevado.
+
+A função `_resolve_data_format` resolve este problema detectando automaticamente o formato de entrada: se o índice já é MultiIndex, retorna sem alteração; se houver colunas `"time"`/`"date"` e `"geo"`, constrói o MultiIndex correspondente, normalizando o nome do nível de tempo para `"date"` (necessário porque o código downstream usa `get_level_values("date")` independentemente do nome original). Na ausência de coluna geo, retorna o DataFrame original, preservando o comportamento nacional para presets single-geo.
+
+### 7.1.3 Fluxo Principal: `discover_graph`
+
+A função `discover_graph` orquestra a descoberta em seis etapas:
+
+1. **Resolução de formato:** converte o DataFrame de entrada para MultiIndex se necessário
+2. **Seleção de CI test:** multi-geo → parcorr; single-geo → CMIknn (lógica descrita na Seção 4.4.3)
+3. **Loop por geo:** para cada geo (máximo de 5, amostrados aleatoriamente se mais disponíveis), executa `_discover_single_geo`, que retorna `(adj, pval, qval)` para aquele geo
+4. **Consenso por maioria de votos:** uma aresta é incluída no grafo final se detectada em ao menos 50% dos geos; p-values e q-values do grafo de consenso são médias condicionais sobre os geos que detectaram cada aresta
+5. **Restrições estruturais:** y não causa outros canais (direcionalidade temporal); controles são tratados como exógenos (canais não causam controles por hipótese)
+6. **Classificação e endogeneidade:** canais diretos (aresta ch → y), mediados (caminho ch → ... → y via BFS com profundidade ≤ 3), excluídos (sem caminho); canais causados por controles são marcados endógenos com R² calculado como penalidade
+
+### 7.1.4 Descoberta por Geo: `_pcmci_discovery`
+
+Para cada geo, os dados são padronizados (StandardScaler, média zero e desvio 1) e passados ao PCMCI:
+
+- Configuração: `tau_min=1`, `tau_max=max_lag` — exclui arestas contemporâneas, que são ambíguas em dados de marketing com granularidade semanal
+- `p_matrix[i, j, τ]` contém o p-value MCI de X_i(t−τ) → X_j(t)
+- `get_corrected_pvalues(fdr_method="fdr_bh")` aplica BH sobre todos os pares e defasagens
+- Decisão de inclusão: `adj[i,j] = 1` se `min(q_matrix[i,j,1:τ_max+1]) < α`
+
+**Fallbacks:** na ausência de tigramite, o módulo recorre ao algoritmo PC com augmentação temporal via causal-learn; na ausência de ambos, usa Granger pairwise via statsmodels. Nos fallbacks, `qval = pval` (sem correção FDR disponível), comportamento documentado com aviso explícito ao usuário.
+
+## 7.2 Módulo de Calibração de Priors (`cdnots_model_builder.py`)
+
+### 7.2.1 Fundamentação: Empirical Bayes e Probabilidade de Inclusão Posterior
+
+Sob o modelo Empirical Bayes de Storey (2002), o q-value de Benjamini-Hochberg satisfaz:
+
+q_i ≈ P(H₀ | dados_i)
+
+onde H₀ é a hipótese nula de ausência de aresta causal. Portanto, a probabilidade de inclusão posterior (PIP) — probabilidade de que o efeito causal seja real dado os dados — é:
+
+**PIP_i = 1 − q_i**
+
+Esta identidade conecta formalmente a descoberta causal com quantidade Bayesiana interpretável (EFRON, 2010, Cap. 5). Um canal com q = 0,01 tem PIP = 0,99: há 99% de probabilidade de que o efeito causal seja real. Um canal excluído com q = 0,95 tem PIP = 0,05: há apenas 5% de probabilidade de efeito real — o prior deve regularizar fortemente para zero.
+
+### 7.2.2 Relaxação Contínua do Spike-and-Slab
+
+O prior ideal para cada coeficiente de canal β é a mistura discreta:
+
+β ~ PIP × HalfNormal(σ_base) + (1 − PIP) × δ(0)
+
+onde δ(0) é a massa pontual em zero. Esta especificação é intratável em MCMC porque requer variáveis latentes binárias, causando convergência lenta. Emprega-se a **relaxação contínua do spike-and-slab** (ISHWARAN; RAO, 2005), que substitui δ(0) por uma HalfNormal de largura mínima, interpolando linearmente entre os dois extremos:
+
+**σ_adj = σ_base × (MIN_SIGMA_RATIO + (1 − MIN_SIGMA_RATIO) × PIP)**
+
+### 7.2.3 Derivação das Constantes
+
+**MIN_SIGMA_RATIO = 0,4** é a largura mínima do componente spike. Empiricamente, valores abaixo de 0,3 causam conflito prior-verossimilhança, manifestado como R-hat > 1,8 no diagnóstico MCMC. O valor 0,4 é o mínimo que preserva tratabilidade do sampler, determinado empiricamente durante o desenvolvimento. Este parâmetro corresponde ao `FLOOR = 0,4` da versão anterior do módulo, renomeado para `MIN_SIGMA_RATIO` para tornar seu papel teórico explícito.
+
+**(1 − MIN_SIGMA_RATIO) = 0,6** não é uma escolha independente — é consequência algébrica de MIN_SIGMA_RATIO = 0,4 e da exigência de interpolação linear entre os extremos (spike = 0,4·σ_base quando PIP = 0; slab = σ_base quando PIP = 1). A fórmula não tem parâmetros livres além de MIN_SIGMA_RATIO.
+
+A tabela abaixo ilustra os multiplicadores para valores típicos de q-value:
+
+| Tipo de canal | q-value | PIP = 1−q | σ_adj / σ_base |
+|---------------|---------|-----------|----------------|
+| Direto, evidência forte | 0,01 | 0,99 | ≈ 1,00 |
+| Direto, moderado | 0,20 | 0,80 | 0,88 |
+| Mediado, borderline | 0,50 | 0,50 | 0,70 |
+| Excluído, evidência fraca | 0,20 | 0,80 | 0,88 (dados decidem) |
+| Excluído, confiante | 0,90 | 0,10 | 0,46 |
+| Excluído, muito confiante | 0,99 | 0,01 | ≈ 0,40 |
+
+Um canal excluído com q = 0,20 (evidência fraca de exclusão) recebe multiplicador 0,88 — quase sem regularização — porque a incerteza é alta e o modelo deve deferir aos dados. Um canal excluído com q = 0,99 recebe multiplicador 0,40 (máxima regularização possível). Esta assimetria é conceitualmente correta: o prior não deve punir um canal quando a evidência contra ele é fraca.
+
+### 7.2.4 Aplicação por Categoria de Canal
+
+A fórmula é idêntica para todas as categorias; o que difere é o q-value utilizado:
+
+- **Canais diretos:** q-value da aresta ch → y em `edge_qvalues[ch_idx, y_idx]`
+- **Canais mediados:** q-value do caminho mais confiante até y, calculado via BFS de elo-mais-fraco: entre todos os caminhos ch → ... → y com profundidade ≤ 3, escolhe-se o caminho com menor q-value máximo (menor incerteza no elo mais fraco do caminho)
+- **Canais excluídos:** q-value da aresta ch → y em `edge_qvalues[ch_idx, y_idx]`, que é alto por definição (aresta não detectada), resultando em PIP baixo e máxima regularização
+
+### 7.2.5 Prior de Adstock
+
+O prior de decaimento geométrico é parametrizado como Beta(1, α_b). Valores altos de α_b concentram a distribuição próxima de zero (decaimento rápido). O PIP modula α_b linearmente:
+
+α_b = clip(BASE_B − (BASE_B − MIN_B) × PIP, MIN_B, 5,0)
+
+Com BASE_B = 3,0 e MIN_B = 1,0: canal com PIP ≈ 1 → α_b ≈ 1,0 (Beta(1,1) = Uniforme, adstock muito flexível); canal com PIP ≈ 0 → α_b ≈ 3,0 (Beta(1,3), prior de decaimento rápido).
+
+### 7.2.6 Penalidade de Endogeneidade
+
+Para canais detectados como confundidos por variável de controle (controle → canal no grafo), aplica-se penalidade proporcional ao R² (variância do canal explicada pelo controle):
+
+tolerance = max(MIN_SIGMA_RATIO, 1 − R²)
+multiplier_final = max(MIN_SIGMA_RATIO, multiplier_PIP × tolerance)
+
+O R² é calculado como quadrado da correlação entre controle e canal nos dados observados, fornecendo medida data-driven do grau de endogeneidade. A penalidade é composta com o multiplicador baseado em PIP, sempre respeitando o piso MIN_SIGMA_RATIO.
+
+### 7.2.7 Integração com PyMC-Marketing e Meridian
+
+Para **PyMC-Marketing**, os multiplicadores são aplicados ao desvio-padrão do prior HalfNormal do coeficiente de canal (`sigma` do prior de `beta_channel`). Para **Meridian**, são aplicados ao parâmetro σ do prior LogNormal de `beta_m`. Em ambos os frameworks, `_compute_adstock_params` ajusta os parâmetros da distribuição Beta do prior de adstock (`alpha` em PyMC-Marketing, `alpha_m` no Meridian).
+
+## 7.3 Geração do Dataset com Estrutura Causal Conhecida
+
+### 7.3.1 Motivação
+
+A avaliação empírica do pipeline proposto requer dados sintéticos com ground truth conhecido: quais canais realmente afetam as vendas, quais arestas causais inter-canal existem, e quais os verdadeiros parâmetros de adstock e saturação. O framework de benchmark `mmm_param_recovery` fornece um gerador de dados parametrizado que implementa exatamente esta estrutura, permitindo calcular métricas de recuperação (Precision, Recall, FDR, SHD) com referência ao ground truth.
+
+### 7.3.2 Preset `causal_business`
+
+O preset `causal_business` foi desenvolvido especificamente para o benchmark CD-NOTS, simulando uma empresa com presença em 4 regiões geográficas e um funnel de marketing realista. Suas características são:
+
+| Dimensão | Valor |
+|----------|-------|
+| Períodos | 156 semanas (3 anos) |
+| Geos | 4 (geo_a, geo_b, geo_c, geo_d) |
+| Canais totais | 8 |
+| Canais com efeito real | 6 (Search-Ads, Brand-Search, TV, Video, Social-Media, Display-Ads) |
+| Canais ghost | 2 (Ghost-A, Ghost-B: `base_effectiveness = 0`) |
+| Controles | 1 (preço) |
+| Arestas causais inter-canal | 3 |
+
+Os canais ghost são incluídos para testar a capacidade do pipeline de suprimir canais sem efeito real — caso em que o prior calibrado deve apresentar multiplicador próximo de MIN_SIGMA_RATIO = 0,4.
+
+### 7.3.3 Estrutura de Arestas Causais: `CausalEdgeConfig`
+
+As arestas causais inter-canal são especificadas via o dataclass `CausalEdgeConfig`:
+
+| Campo | Descrição |
+|-------|-----------|
+| `source_channel` | Canal de origem do spillover |
+| `target_channel` | Canal que recebe o spillover |
+| `effect_size` | Fração do spend adstockado do source que se propaga ao target (0 < e ≤ 1) |
+| `lag` | Defasagem em períodos antes do efeito se manifestar |
+| `decay` | Taxa de decaimento geométrico do adstock do source antes do spillover |
+
+As três arestas do preset `causal_business` modelam o funnel upper-funnel → lower-funnel:
+
+| Aresta | lag | effect_size | decay | Interpretação |
+|--------|-----|-------------|-------|---------------|
+| TV → Search-Ads | 2 semanas | 0,20 | 0,50 | Publicidade de branding em TV aumenta a busca paga 2 semanas depois |
+| Social-Media → Brand-Search | 1 semana | 0,15 | 0,40 | Engajamento social impulsiona busca por marca na semana seguinte |
+| Video → Social-Media | 1 semana | 0,10 | 0,30 | Vídeo online aumenta engajamento em redes sociais |
+
+### 7.3.4 Implementação do Spillover Causal em `_generate_channel_spend_data`
+
+A geração de dados opera em duas fases sequenciais para cada geo:
+
+**Fase 1 — Spend base independente:** cada canal gera sua série temporal de investimento conforme seu padrão configurado (`linear_trend`, `seasonal`, `on_off`), com variações regionais determinísticas por geo (controladas por seed). Os canais são independentes entre si nesta fase.
+
+**Fase 2 — Spillover causal:** para cada aresta `CausalEdgeConfig`, o spend do canal fonte é adstockado geometricamente com taxa `decay` e então adicionado ao spend do canal alvo com a defasagem `lag`:
+
+```
+adstocked[t] = source_spend[t] + decay × adstocked[t−1]
+spillover[t]  = effect_size × adstocked[t − lag]   (para t ≥ lag)
+channel_spends[target] += spillover
+```
+
+O `effect_size` representa a fração do spend adstockado do canal fonte que se manifesta como spend adicional no canal alvo. Para TV → Search-Ads com `effect_size=0,20` e `lag=2`: cada unidade de spend de TV gera, após adstock com decaimento 0,5, um aumento de 20% desse valor no spend de Search-Ads dois períodos depois. As arestas são processadas em ordem de definição; efeitos mediados (Video → Social-Media → Brand-Search) emergem composicionalmente ao longo dos períodos.
+
+### 7.3.5 Ground Truth para Avaliação
+
+A função `_build_causal_ground_truth` constrói a matriz de adjacência verdadeira a partir da configuração, registrando: (a) arestas inter-canal definidas em `causal_edges`; (b) arestas canal → y para canais com `base_effectiveness > 0`; (c) ausência de arestas para canais ghost. Esta matriz é comparada com o grafo descoberto pelo CD-NOTS para calcular as métricas estruturais.
 
 ## 7.4 Framework de Benchmark
 
-[Descrição do benchmark_with_cdnots.py e integração com run_benchmark.py do repo mmm-param-recovery]
+O módulo `cdnots_fitter.py` orquestra a execução completa dos Braços 3 e 4 do experimento:
 
-Repositório: https://github.com/rafaennes/causalmmm_cdnots
+1. Invoca `discover_graph` para obter o `CausalGraph` a partir dos dados de treinamento
+2. Repassa o grafo para `build_pymc_model_with_graph` (Braço 3) ou `build_meridian_model_with_graph` (Braço 4)
+3. Executa MCMC com os priors calibrados pelos multiplicadores Empirical Bayes
+4. Coleta métricas de convergência (R-hat, ESS) e de atribuição (ROAS por canal, contribuições)
+
+A integração com o pipeline de benchmark existente é realizada via `CDNOTS_INTEGRATION.py`, que contém os patches para `run_benchmark.py` do repositório `mmm_param_recovery`. Os patches adicionam os Braços 3 e 4 ao loop de benchmark sem alterar os Braços 1 e 2 (baselines PyMC e Meridian), garantindo que todas as comparações sejam feitas com dados idênticos e mesmos hiperparâmetros MCMC.
 
 ---
 
@@ -343,21 +525,36 @@ Repositório: https://github.com/rafaennes/causalmmm_cdnots
 
 ## 8.1 Dados Sintéticos com Ground Truth Conhecido
 
-Utilização do data_generator do framework mmm-param-recovery para gerar datasets com:
-- Estrutura causal conhecida (quais canais realmente afetam vendas)
-- Parâmetros de adstock e saturação conhecidos
-- Contribuições verdadeiras por canal
-- ROAS verdadeiro por canal e geo
+O experimento de validação principal utiliza o preset `causal_business` (descrito em detalhes na Seção 7.3) como caso primário de avaliação. Este preset foi escolhido por três razões: possui estrutura causal inter-canal explícita e conhecida, permitindo avaliação precisa do módulo de descoberta; é multi-geo (4 geos), exercitando o caminho de código corrigido para detecção de múltiplas séries temporais; e inclui canais ghost com effectiveness zero, testando a capacidade do pipeline de suprimir canais irrelevantes.
 
-Presets: small_business, medium_business, large_business, growing_business.
+O pipeline foi executado com o preset na configuração anterior ao pipeline corrigido para estabelecer uma linha de base quantitativa dos problemas identificados:
+
+| Métrica | Valor baseline (pré-correção) |
+|---------|-------------------------------|
+| Precision | 0,267 |
+| Recall | 0,444 |
+| F1 | 0,333 |
+| FDR | 0,733 |
+| SHD | 16 |
+| Verdadeiros Positivos (TP) | 4 |
+| Falsos Positivos (FP) | 11 |
+| Falsos Negativos (FN) | 5 |
+
+O FDR = 73% confirma o diagnóstico: 11 falsos positivos para apenas 4 verdadeiros positivos. O algoritmo detectava arestas causais inexistentes em massa porque operava sobre a série concatenada de todos os 4 geos como uma única série nacional de 624 observações, gerando dependências temporais artificiais nas fronteiras entre geos. A seleção incorreta de CMIknn (ativada para N = 1 geo efetivo) em vez de parcorr agravava o problema, pois CMIknn tem maior taxa de falsos positivos para séries longas.
 
 ## 8.2 Protocolo de Validação
 
-Para cada dataset:
-1. Rodar CD-NOTS → comparar grafo descoberto com ground truth (SHD, F1)
-2. Estimar PyMC baseline e PyMC + CD-NOTS com mesmos hiperparâmetros MCMC
-3. Estimar Meridian baseline e Meridian + CD-NOTS com mesmos hiperparâmetros
-4. Comparar métricas preditivas e de atribuição entre baseline e graph-informed
+Para o preset `causal_business`, o protocolo de validação segue cinco etapas sequenciais:
+
+1. **Estrutura causal:** executar `discover_graph` com o pipeline corrigido → comparar grafo com ground truth via `evaluate_causal_structure` → calcular SHD, Precision, Recall, F1, FDR. Critérios de sucesso: FDR ≤ 0,40, Precision ≥ 0,60, `ci_test_used == "parcorr"`.
+
+2. **Calibração de priors:** inspecionar a saída de `_log_adjustments` → canais com q ≈ 0,01 devem ter multiplicador ≈ 1,0; canais ghost devem ter multiplicador próximo de 0,40. Verificar diferenciação significativa entre categorias direct/excluded.
+
+3. **Convergência MCMC:** executar Braços 3 (PyMC+CD-NOTS) e 4 (Meridian+CD-NOTS) → verificar R-hat < 1,05 para todos os parâmetros. O limiar 1,05 é mais restritivo que o convencional 1,1 para garantir ausência de conflito prior-verossimilhança — diagnóstico que motivou o redesign do módulo de calibração.
+
+4. **Recuperação de atribuição:** comparar contribuições estimadas com as contribuições verdadeiras por canal → calcular correlação de Pearson e RMSE do ROAS por canal. Verificar se canais ghost têm ROAS estimado próximo de zero em todos os braços.
+
+5. **Comparação dos 4 braços:** quantificar o ganho marginal da calibração CD-NOTS comparando Braço 1 vs. Braço 3 (PyMC) e Braço 2 vs. Braço 4 (Meridian) em todas as métricas preditivas e de atribuição.
 
 ---
 
@@ -443,6 +640,8 @@ O artefato encontra-se em **TRL 4** (validação em ambiente de laboratório com
 
 ASSAAD, C.K.; DEVIJVER, E.; GAUSSIER, É. Survey and Evaluation of Causal Discovery Methods for Time Series. Journal of Artificial Intelligence Research, v. 73, p. 767-819, 2022.
 
+BENJAMINI, Y.; HOCHBERG, Y. Controlling the false discovery rate: a practical and powerful approach to multiple testing. Journal of the Royal Statistical Society. Series B (Methodological), v. 57, n. 1, p. 289-300, 1995.
+
 ATHEY, S.; CHETTY, R.; IMBENS, G.W. The Experimental Selection Correction Estimator. NBER Working Paper 33817, 2025.
 
 BERMAN, R. Beyond the Last Touch: Attribution in Online Advertising. Marketing Science, v. 37, n. 5, 2018.
@@ -460,6 +659,8 @@ COLNET, B. et al. Causal Inference Methods for Combining Randomized Trials and O
 DEKIMPE, M.G.; HANSSENS, D.M. The Persistence of Marketing Effects on Sales. Marketing Science, v. 14, n. 1, p. 1-21, 1995.
 
 DEW, R.; PADILLA, N.; SHCHETKINA, A. Your MMM is Broken. MSI Working Paper 24-144, arXiv:2408.07678, 2024.
+
+EFRON, B. Large-Scale Inference: Empirical Bayes Methods for Estimation, Testing, and Prediction. Cambridge University Press, 2010.
 
 FILIPPOU, G. et al. Causal-Driven Attribution (CDA). arXiv:2512.21211, 2025.
 
@@ -480,6 +681,8 @@ HANSSENS, D.M. Using Return on Marketing Investment Effectively. Journal of Mark
 HANSSENS, D.M.; PAUWELS, K.H. Demonstrating the Value of Marketing. Journal of Marketing, v. 80, n. 6, p. 173-190, 2016.
 
 HUANG, B. et al. Causal Discovery from Heterogeneous/Nonstationary Data. JMLR, v. 21, n. 89, p. 1-53, 2020.
+
+ISHWARAN, H.; RAO, J.S. Spike and slab variable selection: frequentist and Bayesian strategies. Annals of Statistics, v. 33, n. 2, p. 730-773, 2005.
 
 JIN, Y. et al. Bayesian Methods for Media Mix Modeling. Google Research, 2017.
 
@@ -504,6 +707,8 @@ PAMFIL, R. et al. DYNOTEARS: Structure Learning from Time-Series Data. AISTATS, 
 PEARL, J. Causality: Models, Reasoning, and Inference. 2. ed. Cambridge University Press, 2009.
 
 ROSENMAN, E.T.R. Methods for Combining Observational and Experimental Causal Estimates. WIREs, v. 17, e70027, 2025.
+
+STOREY, J.D. A direct approach to false discovery rates. Journal of the Royal Statistical Society. Series B (Statistical Methodology), v. 64, n. 3, p. 479-498, 2002.
 
 ROSENMAN, E.T.R. et al. Combining Datasets Using Shrinkage Estimators. Biometrics, v. 79, n. 4, p. 2961-2973, 2023.
 
