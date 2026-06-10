@@ -1,0 +1,33 @@
+Dataset,Model,Channel,Region,Bias,SRMSE,R²,MAPE (%),Braço
+causal_business,PyMC-Marketing - nutpie,x1_Search-Ads,national,-543.9573383514442,0.8458250873560494,-1.1908874488307326,53.16574904749382,Braço 1: PyMC Baseline
+causal_business,PyMC-Marketing - nutpie,x2_Brand-Search,national,-2868.4012866789967,1.3591293161325009,-1.0480368594493172,99.00703333292917,Braço 1: PyMC Baseline
+causal_business,PyMC-Marketing - nutpie,x3_TV,national,4530.315384664844,1.8309381529197906,-3.5801740459817735,88.46612472178838,Braço 1: PyMC Baseline
+causal_business,PyMC-Marketing - nutpie,x4_Video,national,-2791.1628294425027,0.9491115849530097,-3.3910208237886126,90.52409501681231,Braço 1: PyMC Baseline
+causal_business,PyMC-Marketing - nutpie,x5_Social-Media,national,-4615.38099770451,0.9812125441068364,-6.263336574955332,94.0016825283761,Braço 1: PyMC Baseline
+causal_business,PyMC-Marketing - nutpie,x6_Display-Ads,national,-2934.158068346067,0.8830613096031147,-16.029895933882212,87.44823193171956,Braço 1: PyMC Baseline
+causal_business,PyMC-Marketing - nutpie,x7_Ghost-A,national,50.77849890772633,,,,Braço 1: PyMC Baseline
+causal_business,PyMC-Marketing - nutpie,x8_Ghost-B,national,1044.6098577571852,,,,Braço 1: PyMC Baseline
+causal_business,Meridian,x1_Search-Ads,national,-369.04879132119777,0.16888656066898905,0.9126527722418313,12.184595404775333,Braço 2: Meridian Baseline
+causal_business,Meridian,x2_Brand-Search,national,1106.9006558376066,0.5558969593186178,0.6573862367490063,79.5587068130159,Braço 2: Meridian Baseline
+causal_business,Meridian,x3_TV,national,-1310.4487191951212,0.36029851914501304,0.8226384046277231,36.658819883552255,Braço 2: Meridian Baseline
+causal_business,Meridian,x4_Video,national,-1491.6866359307144,0.5297961431428446,-0.3681966806517898,45.528594857853335,Braço 2: Meridian Baseline
+causal_business,Meridian,x5_Social-Media,national,-2015.2784181287693,0.4337002761774683,-0.4190228321283016,41.52731424929262,Braço 2: Meridian Baseline
+causal_business,Meridian,x6_Display-Ads,national,-1942.0824763938738,0.5886947424192526,-6.568513578069555,56.842369329120515,Braço 2: Meridian Baseline
+causal_business,Meridian,x7_Ghost-A,national,807.1053819656372,,,,Braço 2: Meridian Baseline
+causal_business,Meridian,x8_Ghost-B,national,251.11155113807092,,,,Braço 2: Meridian Baseline
+causal_business,PyMC-Marketing - nutpie,x1_Search-Ads,national,-601.6930707720993,0.7525211106805473,-0.7341885660236727,49.654806163353385,Braço 3: PyMC + CD-NOTS
+causal_business,PyMC-Marketing - nutpie,x2_Brand-Search,national,-2890.4424501162357,1.3711143886020392,-1.0843161083321409,99.61066590195185,Braço 3: PyMC + CD-NOTS
+causal_business,PyMC-Marketing - nutpie,x3_TV,national,4633.260882375268,1.86239538396211,-3.738909396025358,89.79924217133224,Braço 3: PyMC + CD-NOTS
+causal_business,PyMC-Marketing - nutpie,x4_Video,national,-2848.2335475720165,0.9704668189798159,-3.5908418284329464,91.95486866752157,Braço 3: PyMC + CD-NOTS
+causal_business,PyMC-Marketing - nutpie,x5_Social-Media,national,-4745.404386845873,1.011352797925072,-6.716410911633193,96.21490003865974,Braço 3: PyMC + CD-NOTS
+causal_business,PyMC-Marketing - nutpie,x6_Display-Ads,national,-2952.8858755092906,0.8888719034182552,-16.254748654204736,87.95964936224217,Braço 3: PyMC + CD-NOTS
+causal_business,PyMC-Marketing - nutpie,x7_Ghost-A,national,32.48694835321759,,,,Braço 3: PyMC + CD-NOTS
+causal_business,PyMC-Marketing - nutpie,x8_Ghost-B,national,874.1249107019131,,,,Braço 3: PyMC + CD-NOTS
+causal_business,Meridian,x1_Search-Ads,national,374.92864322837846,0.1078965117975285,0.9643488328880636,14.856432965141442,Braço 4: Meridian + CD-NOTS
+causal_business,Meridian,x2_Brand-Search,national,1573.9956451962687,0.8063739875554463,0.27907642546269373,73.76749799582572,Braço 4: Meridian + CD-NOTS
+causal_business,Meridian,x3_TV,national,-2590.280371751596,0.7258282563595032,0.28021569142294767,66.44557482919583,Braço 4: Meridian + CD-NOTS
+causal_business,Meridian,x4_Video,national,-2272.914203236646,0.779759832835177,-1.9638257550770017,72.29536450060809,Braço 4: Meridian + CD-NOTS
+causal_business,Meridian,x5_Social-Media,national,-1602.7307445671352,0.3435730828424668,0.10947062537214503,36.991523644781864,Braço 4: Meridian + CD-NOTS
+causal_business,Meridian,x6_Display-Ads,national,-831.3963154504269,0.2729740117104283,-0.6273197102062191,29.536466202056822,Braço 4: Meridian + CD-NOTS
+causal_business,Meridian,x7_Ghost-A,national,1150.6937290277237,,,,Braço 4: Meridian + CD-NOTS
+causal_business,Meridian,x8_Ghost-B,national,1334.593789907602,,,,Braço 4: Meridian + CD-NOTS

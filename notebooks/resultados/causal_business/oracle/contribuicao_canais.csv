@@ -1,0 +1,33 @@
+Dataset        , Model                  , Channel        , Region  , Bias               , SRMSE              , R²                 , MAPE (%)          , Braço
+causal_business, PyMC-Marketing - nutpie, x1_Search-Ads  , national, -543.9573383514442 , 0.8458250873560494 , -1.1908874488307326, 53.16574904749382 , Braço 1: PyMC Baseline
+causal_business, PyMC-Marketing - nutpie, x2_Brand-Search, national, -2868.4012866789967, 1.3591293161325009 , -1.0480368594493172, 99.00703333292917 , Braço 1: PyMC Baseline
+causal_business, PyMC-Marketing - nutpie, x3_TV          , national, 4530.315384664844  , 1.8309381529197906 , -3.5801740459817735, 88.46612472178838 , Braço 1: PyMC Baseline
+causal_business, PyMC-Marketing - nutpie, x4_Video       , national, -2791.1628294425027, 0.9491115849530097 , -3.3910208237886126, 90.52409501681231 , Braço 1: PyMC Baseline
+causal_business, PyMC-Marketing - nutpie, x5_Social-Media, national, -4615.38099770451  , 0.9812125441068364 , -6.263336574955332 , 94.0016825283761  , Braço 1: PyMC Baseline
+causal_business, PyMC-Marketing - nutpie, x6_Display-Ads , national, -2934.158068346067 , 0.8830613096031147 , -16.029895933882212, 87.44823193171956 , Braço 1: PyMC Baseline
+causal_business, PyMC-Marketing - nutpie, x7_Ghost-A     , national, 50.77849890772633  ,                    ,                    ,                   , Braço 1: PyMC Baseline
+causal_business, PyMC-Marketing - nutpie, x8_Ghost-B     , national, 1044.6098577571852 ,                    ,                    ,                   , Braço 1: PyMC Baseline
+causal_business, Meridian               , x1_Search-Ads  , national, -369.04879132119777, 0.16888656066898905, 0.9126527722418313 , 12.184595404775333, Braço 2: Meridian Baseline
+causal_business, Meridian               , x2_Brand-Search, national, 1106.9006558376066 , 0.5558969593186178 , 0.6573862367490063 , 79.5587068130159  , Braço 2: Meridian Baseline
+causal_business, Meridian               , x3_TV          , national, -1310.4487191951212, 0.36029851914501304, 0.8226384046277231 , 36.658819883552255, Braço 2: Meridian Baseline
+causal_business, Meridian               , x4_Video       , national, -1491.6866359307144, 0.5297961431428446 , -0.3681966806517898, 45.528594857853335, Braço 2: Meridian Baseline
+causal_business, Meridian               , x5_Social-Media, national, -2015.2784181287693, 0.4337002761774683 , -0.4190228321283016, 41.52731424929262 , Braço 2: Meridian Baseline
+causal_business, Meridian               , x6_Display-Ads , national, -1942.0824763938738, 0.5886947424192526 , -6.568513578069555 , 56.842369329120515, Braço 2: Meridian Baseline
+causal_business, Meridian               , x7_Ghost-A     , national, 807.1053819656372  ,                    ,                    ,                   , Braço 2: Meridian Baseline
+causal_business, Meridian               , x8_Ghost-B     , national, 251.11155113807092 ,                    ,                    ,                   , Braço 2: Meridian Baseline
+causal_business, PyMC-Marketing - nutpie, x1_Search-Ads  , national, -98.7778336778014  , 0.8678893262838869 , -1.3066815254975257, 42.86353016666391 , Braço 3: PyMC + CD-NOTS
+causal_business, PyMC-Marketing - nutpie, x2_Brand-Search, national, -2867.542154212377 , 1.3596044442918    , -1.0494690264368756, 96.732502992875   , Braço 3: PyMC + CD-NOTS
+causal_business, PyMC-Marketing - nutpie, x3_TV          , national, 4176.689710669736  , 1.7536944613051795 , -3.201868850734165 , 87.15423966683444 , Braço 3: PyMC + CD-NOTS
+causal_business, PyMC-Marketing - nutpie, x4_Video       , national, -2748.8821048204727, 0.9344545191534613 , -3.256447539458282 , 88.99117217811661 , Braço 3: PyMC + CD-NOTS
+causal_business, PyMC-Marketing - nutpie, x5_Social-Media, national, -4577.904495886748 , 0.973377916875882  , -6.147809414598911 , 93.12046120136822 , Braço 3: PyMC + CD-NOTS
+causal_business, PyMC-Marketing - nutpie, x6_Display-Ads , national, -2585.0165442550338, 0.7825225495605103 , -12.372850901039957, 75.57077123280189 , Braço 3: PyMC + CD-NOTS
+causal_business, PyMC-Marketing - nutpie, x7_Ghost-A     , national, 32.93436391291238  ,                    ,                    ,                   , Braço 3: PyMC + CD-NOTS
+causal_business, PyMC-Marketing - nutpie, x8_Ghost-B     , national, 887.6286042558513  ,                    ,                    ,                   , Braço 3: PyMC + CD-NOTS
+causal_business, Meridian               , x1_Search-Ads  , national, -275.7096463454866 , 0.1430153437786256 , 0.9373639717048181 , 11.597655858179525, Braço 4: Meridian + CD-NOTS
+causal_business, Meridian               , x2_Brand-Search, national, 1100.047773255199  , 0.5605073897757101 , 0.6516796134736694 , 72.575524257105   , Braço 4: Meridian + CD-NOTS
+causal_business, Meridian               , x3_TV          , national, -1262.8971083967133, 0.348624976810716  , 0.8339451253570569 , 35.61572778020556 , Braço 4: Meridian + CD-NOTS
+causal_business, Meridian               , x4_Video       , national, -1614.491271492144 , 0.565384240388096  , -0.5581825815699981, 51.37359637765192 , Braço 4: Meridian + CD-NOTS
+causal_business, Meridian               , x5_Social-Media, national, -2298.9813864633097, 0.48432543011833895, -0.7696383915851648, 48.95884602736478 , Braço 4: Meridian + CD-NOTS
+causal_business, Meridian               , x6_Display-Ads , national, 1155.9097069979907 , 0.39642951780149727, -2.432118296320944 , 54.85185486565356 , Braço 4: Meridian + CD-NOTS
+causal_business, Meridian               , x7_Ghost-A     , national, 998.8015061830863  ,                    ,                    ,                   , Braço 4: Meridian + CD-NOTS
+causal_business, Meridian               , x8_Ghost-B     , national, 882.0113963591747  ,                    ,                    ,                   , Braço 4: Meridian + CD-NOTS

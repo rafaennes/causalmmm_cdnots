@@ -1,0 +1,183 @@
+2026-05-14 00:05:56.501755: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: SSE3 SSE4.1 SSE4.2 AVX AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+RESULTS_DIR: /home/ennes/mestrado/causalmmm_with_cdnots/notebooks/resultados
+Paths configurados.
+Imports principais OK
+CD-NOTS: módulos carregados via importlib (fallback)
+Meridian: disponível
+Preset: causal_business
+                                                                                
+  Dataset shape             156 rows × 14 columns                               
+  Effective modeling size   156 rows × 12 columns (time, geo, 8 channels, 1     
+                            controls, target)                                   
+  Regions                   ['national']                                        
+  Date range                2020-01-05 00:00:00 to 2022-12-25 00:00:00          
+  Channels                  8 channels: x1_Search-Ads, x2_Brand-Search,         
+                            x3_TV...                                            
+  Controls                  1 controls                                          
+                                                                                
+RESULTS_DIR atualizado: 
+/home/ennes/mestrado/causalmmm_with_cdnots/notebooks/resultados/causal_business
+
+Canais: ['x1_Search-Ads', 'x2_Brand-Search', 'x3_TV', 'x4_Video', 
+'x5_Social-Media', 'x6_Display-Ads', 'x7_Ghost-A', 'x8_Ghost-B']
+Controles: ['c1']
+Shape data_df: (156, 14)
+Shape truth_df: (156, 10)
+Arestas verdadeiras: 9 (todos os canais → y)
+────────────────────────── CD-NOTS: Descoberta Causal ──────────────────────────
+
+  CD-NOTS Discovery v2: 8 channels + 1 controls + y = 10 vars, 1/1 geos, 156 
+timepoints, CI: kci, alpha: 0.05, max_lag: 2
+         CD-NOTS Discovery Results (v2)          
+┏━━━━━━━━━━━━━━━━━┳━━━━━┳━━━━━━━━━━┳━━━━━━━━━━━━┓
+┃ Channel         ┃ → y ┃ Category ┃ Endogenous ┃
+┡━━━━━━━━━━━━━━━━━╇━━━━━╇━━━━━━━━━━╇━━━━━━━━━━━━┩
+│ x1_Search-Ads   │ ✗   │ excluded │            │
+│ x2_Brand-Search │ ✗   │ excluded │            │
+│ x3_TV           │ ✗   │ excluded │            │
+│ x4_Video        │ ✗   │ excluded │            │
+│ x5_Social-Media │ ✗   │ excluded │            │
+│ x6_Display-Ads  │ ✗   │ excluded │            │
+│ x7_Ghost-A      │ ✗   │ excluded │            │
+│ x8_Ghost-B      │ ✗   │ excluded │            │
+└─────────────────┴─────┴──────────┴────────────┘
+  Edges: 0 | Direct: 0 | Mediated: 0 | Excluded: 8 | Endogenous: 0 | Runtime: 
+5612.5s
+
+Grafo salvo em: 
+/home/ennes/mestrado/causalmmm_with_cdnots/notebooks/resultados/causal_business/
+cdnots_graph.pkl
+Plot salvo em: 
+/home/ennes/mestrado/causalmmm_with_cdnots/notebooks/resultados/causal_business/
+cdnots_graph.png
+
+Nenhuma aresta controle → canal detectada no grafo de consenso.
+  CD-NOTS vs. Grafo  
+Verdadeiro — Métricas
+     Estruturais     
+┏━━━━━━━━━━━┳━━━━━━━┓
+┃ Métrica   ┃ Valor ┃
+┡━━━━━━━━━━━╇━━━━━━━┩
+│ precision │ 0.0   │
+│ recall    │ 0.0   │
+│ f1        │ 0.0   │
+│ fdr       │ 0.0   │
+│ shd       │ 9     │
+│ tp        │ 0     │
+│ fp        │ 0     │
+│ fn        │ 9     │
+│ tn        │ 63    │
+└───────────┴───────┘
+Canais diretos:   []
+Canais mediados:  []
+Canais excluídos: ['x1_Search-Ads', 'x2_Brand-Search', 'x3_TV', 'x4_Video', 
+'x5_Social-Media', 'x6_Display-Ads', 'x7_Ghost-A', 'x8_Ghost-B']
+Runtime CD-NOTS:  5612.5s
+ci_test_used: kci
+n_edges: 0
+runtime: 5612.488431646998
+
+Arestas canal→y detectadas:
+  x1_Search-Ads                  ✗
+  x2_Brand-Search                ✗
+  x3_TV                          ✗
+  x4_Video                       ✗
+  x5_Social-Media                ✗
+  x6_Display-Ads                 ✗
+  x7_Ghost-A                     ✗
+  x8_Ghost-B                     ✗
+Configuração: 2 chains × 500 draws, tune=500, sampler=nutpie
+Checkpoints em: 
+/home/ennes/mestrado/causalmmm_with_cdnots/notebooks/resultados/causal_business/
+checkpoints
+─────────────────────── Braço 1: PyMC-Marketing Baseline ───────────────────────
+✓ Checkpoint carregado: 
+/home/ennes/mestrado/causalmmm_with_cdnots/notebooks/resultados/causal_business/
+checkpoints/arm1_pymc_baseline.pkl
+
+✓ Runtime: 420.8s | ESS mín: 121
+────────────────────────── Braço 2: Meridian Baseline ──────────────────────────
+✓ Checkpoint carregado: 
+/home/ennes/mestrado/causalmmm_with_cdnots/notebooks/resultados/causal_business/
+checkpoints/arm2_meridian_baseline.pkl
+
+✓ Runtime: 655.8s | ESS mín: 128
+                        Ajuste de Priors via CD-NOTS                         
+┏━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━┳━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━┳━━━━━━━━━━━━┓
+┃ Canal           ┃ Categoria ┃ σ base (médio) ┃ Multiplicador ┃ σ ajustado ┃
+┡━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━╇━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━╇━━━━━━━━━━━━┩
+│ x1_Search-Ads   │ excluído  │ 1.4680         │ 0.400×        │ 0.5872     │
+│ x2_Brand-Search │ excluído  │ 0.0251         │ 0.400×        │ 0.0100     │
+│ x3_TV           │ excluído  │ 0.0742         │ 0.400×        │ 0.0297     │
+│ x4_Video        │ excluído  │ 2.4998         │ 0.400×        │ 0.9999     │
+│ x5_Social-Media │ excluído  │ 0.4072         │ 0.400×        │ 0.1629     │
+│ x6_Display-Ads  │ excluído  │ 1.9251         │ 0.400×        │ 0.7700     │
+│ x7_Ghost-A      │ excluído  │ 0.1199         │ 0.400×        │ 0.0480     │
+│ x8_Ghost-B      │ excluído  │ 1.4806         │ 0.400×        │ 0.5922     │
+└─────────────────┴───────────┴────────────────┴───────────────┴────────────┘
+────────────────────── Braço 3: PyMC-Marketing + CD-NOTS ───────────────────────
+  Fitting PyMC-Marketing + CD-NOTS with nutpie, 2 chains, 500 draws, 500 tune 
+steps
+    Graph: 0 direct, 0 mediated, 8 excluded
+WARNING:2026-05-14 07:41:19,486:jax._src.xla_bridge:969: An NVIDIA GPU may be present on this machine, but a CUDA-enabled jaxlib is not installed. Falling back to cpu.
+
+  Prior adjustments (MIN_SIGMA_RATIO=0.4, formula: σ×(0.4+0.6×PIP)):
+                     x1_Search-Ads: σ×0.400  (p=1.0000, q=1.0000, PIP=0.000, excluded)
+                   x2_Brand-Search: σ×0.400  (p=1.0000, q=1.0000, PIP=0.000, excluded)
+                             x3_TV: σ×0.400  (p=1.0000, q=1.0000, PIP=0.000, excluded)
+                          x4_Video: σ×0.400  (p=1.0000, q=1.0000, PIP=0.000, excluded)
+                   x5_Social-Media: σ×0.400  (p=1.0000, q=1.0000, PIP=0.000, excluded)
+                    x6_Display-Ads: σ×0.400  (p=1.0000, q=1.0000, PIP=0.000, excluded)
+                        x7_Ghost-A: σ×0.400  (p=1.0000, q=1.0000, PIP=0.000, excluded)
+                        x8_Ghost-B: σ×0.400  (p=1.0000, q=1.0000, PIP=0.000, excluded)
+Computing ... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 100% 0:00:00
+Sampling: [y]
+Sampling ... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 100% 0:00:00 / 0:00:00
+  ✓ PyMC + CD-NOTS - nutpie: 159.4s, ESS min: 58.05822511551596
+✓ Checkpoint salvo: 
+/home/ennes/mestrado/causalmmm_with_cdnots/notebooks/resultados/causal_business/
+checkpoints/arm3_pymc_cdnots.pkl
+
+✓ Runtime: 159.4s | ESS mín: 58
+───────────────────────── Braço 4: Meridian + CD-NOTS ──────────────────────────
+  Fitting Meridian + CD-NOTS with 2 chains, 500 draws, 500 tune steps
+    Graph: 0 direct, 0 mediated, 8 excluded
+2026-05-14 07:48:32.243743: I tensorflow/compiler/mlir/tensorflow/utils/dump_mlir_util.cc:268] disabling MLIR crash reproducer, set env var `MLIR_CRASH_REPRODUCER_DIRECTORY` to enable.
+
+  Prior adjustments (MIN_SIGMA_RATIO=0.4, formula: σ×(0.4+0.6×PIP)):
+                     x1_Search-Ads: σ×0.400  (p=1.0000, q=1.0000, PIP=0.000, excluded)
+                   x2_Brand-Search: σ×0.400  (p=1.0000, q=1.0000, PIP=0.000, excluded)
+                             x3_TV: σ×0.400  (p=1.0000, q=1.0000, PIP=0.000, excluded)
+                          x4_Video: σ×0.400  (p=1.0000, q=1.0000, PIP=0.000, excluded)
+                   x5_Social-Media: σ×0.400  (p=1.0000, q=1.0000, PIP=0.000, excluded)
+                    x6_Display-Ads: σ×0.400  (p=1.0000, q=1.0000, PIP=0.000, excluded)
+                        x7_Ghost-A: σ×0.400  (p=1.0000, q=1.0000, PIP=0.000, excluded)
+                        x8_Ghost-B: σ×0.400  (p=1.0000, q=1.0000, PIP=0.000, excluded)
+  ✓ Meridian + CD-NOTS: 450.0s, ESS min: 93.72745429645282
+✓ Checkpoint salvo: 
+/home/ennes/mestrado/causalmmm_with_cdnots/notebooks/resultados/causal_business/
+checkpoints/arm4_meridian_cdnots.pkl
+
+✓ Runtime: 450.0s | ESS mín: 94
+Métricas de ajuste salvas.
+Warning: Length mismatch for x1_Search-Ads in Local: true=0, pred=156
+Warning: Length mismatch for x2_Brand-Search in Local: true=0, pred=156
+Warning: Length mismatch for x3_TV in Local: true=0, pred=156
+Warning: Length mismatch for x4_Video in Local: true=0, pred=156
+Warning: Length mismatch for x5_Social-Media in Local: true=0, pred=156
+Warning: Length mismatch for x6_Display-Ads in Local: true=0, pred=156
+Warning: Length mismatch for x7_Ghost-A in Local: true=0, pred=156
+Warning: Length mismatch for x8_Ghost-B in Local: true=0, pred=156
+Warning: Length mismatch for x1_Search-Ads in Local: true=0, pred=156
+Warning: Length mismatch for x2_Brand-Search in Local: true=0, pred=156
+Warning: Length mismatch for x3_TV in Local: true=0, pred=156
+Warning: Length mismatch for x4_Video in Local: true=0, pred=156
+Warning: Length mismatch for x5_Social-Media in Local: true=0, pred=156
+Warning: Length mismatch for x6_Display-Ads in Local: true=0, pred=156
+Warning: Length mismatch for x7_Ghost-A in Local: true=0, pred=156
+Warning: Length mismatch for x8_Ghost-B in Local: true=0, pred=156
+Métricas de contribuição salvas.
+Diagnósticos salvos.
+Resumo do experimento salvo.
+Memória liberada.

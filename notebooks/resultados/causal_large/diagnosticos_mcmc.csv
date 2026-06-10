@@ -1,5 +1,5 @@
-Braço,ESS mín,ESS q50,R-hat máx,R-hat > 1.1,Divergências,Runtime (s)
-Braço 1: PyMC Baseline,30.0,359.0,1.1,0,9,1209.8
-Braço 2: Meridian Baseline,214.0,229.0,1.01,0,0,407.8
-Braço 3: PyMC + CD-NOTS,50.0,478.0,1.05,0,6,1137.3
-Braço 4: Meridian + CD-NOTS,152.0,166.0,1.01,0,1,399.7
+Braço                      , ESS mín, ESS q50, R-hat máx, R-hat > 1.1, Divergências, Runtime (s)
+Braço 1: PyMC Baseline     ,    66.0,   718.0,      1.03,           0,            1,      1469.9
+Braço 2: Meridian Baseline ,   115.0,   128.0,      1.01,           0,            0,       472.2
+Braço 3: PyMC + CD-NOTS    ,    14.0,   588.0,      1.11,           2,            2,      1065.6
+Braço 4: Meridian + CD-NOTS,   108.0,   166.0,      1.02,           0,           16,       404.3

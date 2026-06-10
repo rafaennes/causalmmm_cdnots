@@ -304,6 +304,71 @@ def discover_graph(
     return graph
 
 
+def build_oracle_graph(
+    channel_columns: List[str],
+    control_columns: List[str],
+    truth_df: pd.DataFrame,
+    console: Optional[Console] = None,
+) -> "CausalGraph":
+    """Build a CausalGraph from ground-truth contributions (oracle mode).
+
+    Channels with nonzero true contribution → direct edge to y (PIP = 1.0).
+    Ghost channels (zero / absent contribution) → excluded (PIP = 0.0).
+
+    Used to isolate the calibration mechanism from graph discovery quality:
+    if oracle arms outperform baselines, the mechanism is sound; the bottleneck
+    is graph discovery accuracy, not the prior-adjustment formula.
+    """
+    n_channels = len(channel_columns)
+    n_controls = len(control_columns)
+    n_vars = n_channels + n_controls + 1
+    y_idx = n_vars - 1
+
+    variable_names = tuple(channel_columns) + tuple(control_columns) + ("y",)
+
+    adj  = np.zeros((n_vars, n_vars))
+    pval = np.ones((n_vars, n_vars))
+    qval = np.ones((n_vars, n_vars))
+
+    direct: List[str]   = []
+    excluded: List[str] = []
+
+    for i, ch in enumerate(channel_columns):
+        true_col = f"contribution_{ch}"
+        has_effect = (
+            true_col in truth_df.columns
+            and truth_df[true_col].abs().sum() > 0
+        )
+        if has_effect:
+            adj[i, y_idx]  = 1.0
+            pval[i, y_idx] = 0.0   # oracle certainty → PIP = 1.0
+            qval[i, y_idx] = 0.0
+            direct.append(ch)
+        else:
+            excluded.append(ch)
+
+    graph = CausalGraph(
+        adjacency_matrix=adj,
+        edge_pvalues=pval,
+        edge_qvalues=qval,
+        variable_names=variable_names,
+        direct_channels=tuple(direct),
+        excluded_channels=tuple(excluded),
+        mediated_channels=(),
+        endogenous_channels=(),
+        endogenous_r2={},
+        control_names=tuple(control_columns),
+        control_to_channel_edges=(),
+        runtime_seconds=0.0,
+        ci_test_used="oracle",
+        n_edges=len(direct),
+    )
+
+    if console is not None:
+        _print_summary(graph, channel_columns, control_columns, console)
+    return graph
+
+
 def _discover_single_geo(
     data: np.ndarray,
     n_vars: int,

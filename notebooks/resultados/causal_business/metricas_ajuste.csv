@@ -1,0 +1,5 @@
+Model                  , Geo     , R²                , MAPE (%)           , Bias              , SRMSE               , Durbin-Watson      , Braço
+PyMC-Marketing - nutpie, national, 0.7843            , 10.27              , -30.6175          , 0.1138              , 0.179              , Braço 1: PyMC Baseline
+Meridian               , geo_a   , 0.983299970626831 ,  2.7300000190734863, 1.2022000551223755, 0.031599998474121094, 0.49000000953674316, Braço 2: Meridian Baseline
+PyMC-Marketing - nutpie, national, 0.7881            , 10.2               , -0.5473           , 0.1128              , 0.186              , Braço 3: PyMC + CD-NOTS
+Meridian               , geo_a   , 0.9692000150680542,  3.6600000858306885, -3.472599983215332, 0.0430000014603138  , 0.5709999799728394 , Braço 4: Meridian + CD-NOTS

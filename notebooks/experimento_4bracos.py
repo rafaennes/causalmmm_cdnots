@@ -44,6 +44,8 @@ import sys
 import os
 import warnings
 warnings.filterwarnings("ignore")
+import matplotlib
+matplotlib.use('Agg')  # backend não-interativo para execução em background
 
 # ─── Paths das duas repos ───────────────────────────────────────────────────
 PYMC_COMPARISON_ROOT = "/home/ennes/mestrado/pymc_meridian_comparison"
@@ -147,7 +149,10 @@ except ImportError:
 
 
 SEED        = 20250715
-PRESET_NAME = "small_business"
+PRESET_NAME = sys.argv[1] if len(sys.argv) > 1 else "small_business"
+CI_TEST     = sys.argv[2] if len(sys.argv) > 2 else "auto"
+ORACLE_MODE = CI_TEST == "oracle"
+print(f"Preset: {PRESET_NAME}  |  CI test: {CI_TEST}")
 
 config         = get_preset_config(PRESET_NAME, seed=SEED)
 dataset_result = generate_mmm_dataset(config)
@@ -156,8 +161,10 @@ data_df, channel_columns, control_columns, truth_df = prepare_dataset_for_modeli
     dataset_result, console=console
 )
 
-# Update RESULTS_DIR to include preset subfolder
-RESULTS_DIR = os.path.join(CAUSALMMM_ROOT, "notebooks", "resultados", PRESET_NAME)
+# Update RESULTS_DIR: oracle mode uses a dedicated subfolder to avoid mixing
+# oracle results with discovered-graph results.
+_base_results = os.path.join(CAUSALMMM_ROOT, "notebooks", "resultados", PRESET_NAME)
+RESULTS_DIR   = os.path.join(_base_results, "oracle") if ORACLE_MODE else _base_results
 os.makedirs(RESULTS_DIR, exist_ok=True)
 console.print(f"RESULTS_DIR atualizado: {RESULTS_DIR}")
 
@@ -207,10 +214,15 @@ n_channels = len(channel_columns)
 n_vars     = n_channels + 1   # canais + y
 y_idx      = n_vars - 1
 
-# Matriz de adjacência verdadeira: canal_i → y (índice n_vars-1)
-true_adj = np.zeros((n_vars, n_vars))
-for i in range(n_channels):
-    true_adj[i, y_idx] = 1.0
+# Matriz de adjacência verdadeira: usa ground truth do dataset quando disponível
+# (presets causais têm inter-channel edges e ghost channels sem efeito).
+# Fallback: assume todos os canais → y (presets sem estrutura causal explícita).
+if "causal_graph" in dataset_result.get("ground_truth", {}):
+    true_adj = dataset_result["ground_truth"]["causal_graph"]["adjacency_matrix"]
+else:
+    true_adj = np.zeros((n_vars, n_vars))
+    for i in range(n_channels):
+        true_adj[i, y_idx] = 1.0
 
 var_labels = channel_columns + ["y"]
 
@@ -256,20 +268,32 @@ console.rule("[bold magenta]CD-NOTS: Descoberta Causal[/bold magenta]")
 # cdnots_discovery usa path 'national' (todos os dados = 1 geo) — correto para causal_large.
 # Para datasets multi-geo, usar: data_df.set_index(["time", "geo"]) antes de chamar.
 
-causal_graph = cdnots_discovery.discover_graph(
-    data_df,
-    channel_columns,
-    control_columns=control_columns,   # ativa detecção controle → mídia (endogeneidade)
-    alpha=0.05,
-    max_lag=2,
-    console=console,
-)
-
-# Salvar para reprodutibilidade
 graph_path = os.path.join(RESULTS_DIR, "cdnots_graph.pkl")
-with open(graph_path, "wb") as f:
-    pickle.dump(causal_graph, f)
-console.print(f"\n[green]Grafo salvo em:[/green] {graph_path}")
+if ORACLE_MODE:
+    # Build ground-truth graph from known contributions — no discovery needed.
+    causal_graph = cdnots_discovery.build_oracle_graph(
+        channel_columns, control_columns, truth_df, console=console
+    )
+    with open(graph_path, "wb") as f:
+        pickle.dump(causal_graph, f)
+    console.print(f"[green]Grafo oracle salvo em:[/green] {graph_path}")
+elif os.path.exists(graph_path):
+    with open(graph_path, "rb") as f:
+        causal_graph = pickle.load(f)
+    console.print(f"[yellow]✓ Grafo CD-NOTS carregado do cache: {graph_path}[/yellow]")
+else:
+    causal_graph = cdnots_discovery.discover_graph(
+        data_df,
+        channel_columns,
+        control_columns=control_columns,
+        alpha=0.05,
+        max_lag=2,
+        ci_test=CI_TEST,
+        console=console,
+    )
+    with open(graph_path, "wb") as f:
+        pickle.dump(causal_graph, f)
+    console.print(f"\n[green]Grafo salvo em:[/green] {graph_path}")
 
 
 # In[7]:
@@ -422,13 +446,16 @@ for ch in channel_columns:
 
 
 # ─── Hiperparâmetros MCMC ─────────────────────────────────────────────────────
-N_CHAINS      = 2
-N_DRAWS       = 500
-N_TUNE        = 500
+N_CHAINS      = int(sys.argv[3]) if len(sys.argv) > 3 else 2
+N_DRAWS       = int(sys.argv[4]) if len(sys.argv) > 4 else 500
+N_TUNE        = N_DRAWS  # always match tune to draws
 TARGET_ACCEPT = 0.9
 SAMPLER       = "nutpie"   # alternativas: "pymc", "blackjax", "numpyro"
 
-CHECKPOINT_DIR = os.path.join(RESULTS_DIR, "checkpoints")
+# In oracle mode, arms 1 & 2 (baselines) reuse checkpoints from the parent
+# results directory — no need to re-fit them.
+_baseline_ckpt_dir = os.path.join(_base_results, "checkpoints")
+CHECKPOINT_DIR     = os.path.join(RESULTS_DIR, "checkpoints")
 os.makedirs(CHECKPOINT_DIR, exist_ok=True)
 
 # Dicionário central de resultados: {arm_name: (model, runtime_s, ess_dict) | None}
@@ -448,7 +475,7 @@ console.print(f"Checkpoints em: {CHECKPOINT_DIR}")
 
 console.rule("[bold cyan]Braço 1: PyMC-Marketing Baseline[/bold cyan]")
 
-_ckpt = os.path.join(CHECKPOINT_DIR, "arm1_pymc_baseline.pkl")
+_ckpt = os.path.join(_baseline_ckpt_dir if ORACLE_MODE else CHECKPOINT_DIR, "arm1_pymc_baseline.pkl")
 if os.path.exists(_ckpt):
     with open(_ckpt, "rb") as f:
         pymc_baseline, rt_b1, ess_b1 = pickle.load(f)
@@ -486,7 +513,7 @@ console.print(f"\n[green]✓[/green] Runtime: {rt_b1:.1f}s | ESS mín: {ess_b1.g
 if MERIDIAN_AVAILABLE:
     console.rule("[bold cyan]Braço 2: Meridian Baseline[/bold cyan]")
 
-    _ckpt = os.path.join(CHECKPOINT_DIR, "arm2_meridian_baseline.pkl")
+    _ckpt = os.path.join(_baseline_ckpt_dir if ORACLE_MODE else CHECKPOINT_DIR, "arm2_meridian_baseline.pkl")
     if os.path.exists(_ckpt):
         with open(_ckpt, "rb") as f:
             meridian_baseline, rt_b2, ess_b2 = pickle.load(f)
