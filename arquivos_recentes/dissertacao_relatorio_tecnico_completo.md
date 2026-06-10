@@ -570,11 +570,61 @@ A penalidade de endogeneidade opera de forma multiplicativa sobre o multiplicado
 
 ## 6.5 Frameworks Bayesianos e o Framework de Comparação
 
-[RASCUNHO — ver Task 6]
+### 6.5.1 PyMC-Marketing
+
+O PyMC-Marketing (PyMC-Marketing Team, 2023) é um framework Bayesiano de código aberto construído sobre o PyMC, projetado especificamente para MMM. No presente experimento, o prior da variável `beta_channel` — coeficiente de efetividade de cada canal — segue uma distribuição $\text{HalfNormal}(\sigma = \sigma_{\text{adj}})$, onde $\sigma_{\text{adj}}$ é o desvio-padrão ajustado produzido pelo multiplicador de Empirical Bayes descrito na Seção 6.4. O efeito de *adstock* é modelado via `GeometricAdstock`, cujo parâmetro de decaimento recebe prior $\text{Beta}(\alpha=1,\, \beta=\alpha_b)$, com $\alpha_b$ ajustado pela PIP (Seção 6.4.6): valores altos de PIP reduzem $\alpha_b$, concentrando a distribuição próxima a um, o que reflete maior confiança causal em efeitos de longa duração. A saturação é representada pela `HillSaturationSigmoid`. A inferência é conduzida pelo amostrador NUTS com *backend* nutpie/JAX para máximo desempenho computacional. A verificação preditiva *a posteriori* é realizada via `sample_posterior_predictive`, produzindo distribuições preditivas que permitem avaliar o ajuste do modelo aos dados observados.
+
+### 6.5.2 Meridian (Google)
+
+O Meridian (Google Meridian Team, 2024) é o framework Bayesiano geo-nível desenvolvido pelo Google, implementado em TensorFlow Probability. Sua principal característica distintiva é o uso da CDF de Weibull para modelar o *adstock*, o que permite capturar picos de efeito defasados no tempo — uma flexibilidade superior à do decaimento geométrico puro, que assume declínio monotônico do efeito a partir do período de exposição. O coeficiente de efetividade por canal, `beta_m`, recebe prior $\text{LogNormal}(\mu,\, \sigma = \sigma_{\text{adj}})$, com $\sigma_{\text{adj}}$ proveniente do módulo de calibração (Seção 6.4); a distribuição log-normal é a escolha canônica do Meridian por garantir positividade dos coeficientes e compatibilidade com a interpretação multiplicativa de ROAS. A configuração do MCMC segue a convenção do framework: $n_{\text{adapt}} + n_{\text{burnin}} = n_{\text{tune}}$ passos de aquecimento e $n_{\text{keep}} = n_{\text{draws}}$ amostras retidas, mantendo os mesmos hiperparâmetros dos braços de linha de base para garantir comparabilidade.
+
+### 6.5.3 Pontos de Injeção dos Priors Calibrados
+
+A modularidade de ambos os frameworks permite que os priors calibrados pelo CD-NOTS sejam injetados sem qualquer modificação da lógica interna de estimação. No PyMC-Marketing, o argumento `sigma` da distribuição `HalfNormal` do `beta_channel` é substituído por $\sigma_{\text{adj}}$ calculado por canal; o argumento `beta` da distribuição `Beta` do *adstock* é substituído por $\alpha_b$ calculado por canal. No Meridian, o parâmetro de dispersão da distribuição `LogNormal` do `beta_m` é substituído por $\sigma_{\text{adj}}$ por canal, por meio do objeto `PriorDistribution`. Em ambos os casos, apenas os hiperparâmetros das distribuições a priori são alterados; a verossimilhança, a função de ligação e a geometria do espaço de parâmetros permanecem idênticos entre braços calibrados e braços de linha de base.
+
+### 6.5.4 Framework de Comparação: `mmm_param_recovery`
+
+O repositório irmão `/home/ennes/mestrado/pymc_meridian_comparison/` fornece a infraestrutura experimental compartilhada pelos quatro braços do experimento: gerador de dados sintéticos com ground truth parametrizado, rotinas de ajuste dos Braços 1 e 2 (linhas de base), métricas padronizadas e registro estruturado de resultados. Os Braços 3 e 4 — PyMC-Marketing e Meridian com priors calibrados via CD-NOTS — são integrados por meio de extensões documentadas no arquivo `CDNOTS_INTEGRATION.py` (detalhado na Seção 7.6), sem modificação das rotinas dos braços de linha de base. A garantia de comparabilidade é estrutural: todos os quatro braços recebem exatamente os mesmos dados de treino e avaliação, os mesmos hiperparâmetros de MCMC (número de cadeias, amostras, passos de *tuning* e `target_accept`) e a mesma semente aleatória. A única variável que difere entre braços é a especificação dos priors — padrão nos Braços 1 e 2, calibrada pelo grafo causal CD-NOTS nos Braços 3 e 4. Essa arquitetura assegura que qualquer diferença observada nas métricas de avaliação seja atribuível exclusivamente à calibração estrutural dos priors, e não a assimetrias nos dados ou na configuração computacional.
 
 ## 6.6 Métricas de Avaliação
 
-[RASCUNHO — ver Task 7]
+A avaliação do pipeline é organizada em quatro dimensões, cada uma respondendo a uma questão específica do experimento.
+
+### 6.6.1 Estrutura Causal — "O algoritmo descobriu o grafo correto?"
+
+A qualidade do grafo causal descoberto pelo CD-NOTS é aferida pela comparação com a matriz de adjacência de ground truth gerada por `_build_causal_ground_truth()`. As métricas adotadas são as seguintes:
+
+- **SHD** (*Structural Hamming Distance*) $= |FP| + |FN|$: número total de arestas incorretas — presentes no grafo inferido mas ausentes no ground truth (*falsos positivos*, FP), ou ausentes no grafo inferido mas presentes no ground truth (*falsos negativos*, FN). Valores menores indicam maior fidelidade estrutural.
+- **Precisão** $= TP / (TP + FP)$: fração das arestas descobertas que são verdadeiras. Alta Precisão indica baixa taxa de arestas espúrias.
+- **Revocação** $= TP / (TP + FN)$: fração das arestas verdadeiras que foram efetivamente descobertas. Alta Revocação indica poucos falsos negativos.
+- **F1** $= 2 \times \text{Precisão} \times \text{Revocação} / (\text{Precisão} + \text{Revocação})$: média harmônica entre Precisão e Revocação; resume o desempenho estrutural em um único escalar.
+- **FDR** (*False Discovery Rate*) $= FP / (TP + FP)$: complemento da Precisão; representa a proporção de arestas descobertas que são espúrias.
+
+Os critérios de sucesso para o preset `causal_business` são: $\text{FDR} \leq 0{,}40$, $\text{Precisão} \geq 0{,}60$, e `ci_test_used == "parcorr"` — este último confirmando que o teste de independência condicional adequado ao cenário multi-geo foi ativado corretamente.
+
+### 6.6.2 Predição — "O modelo ajustado prevê melhor?"
+
+A qualidade preditiva dos modelos é avaliada pelas seguintes métricas, calculadas por geo e de forma agregada:
+
+- **R²** (coeficiente de determinação): proporção da variância da variável resposta explicada pelo modelo.
+- **MAPE** (*Mean Absolute Percentage Error*): erro percentual médio absoluto; adimensional e interpretável na escala da variável resposta.
+- **RMSE** (*Root Mean Square Error*): raiz do erro quadrático médio; sensível a desvios de grande magnitude.
+- **Durbin-Watson**: estatística de diagnóstico de autocorrelação nos resíduos; valores afastados de 2,0 indicam má especificação temporal do modelo.
+
+### 6.6.3 Atribuição — "O modelo recupera o impacto real de cada canal?"
+
+A fidelidade da atribuição de efetividade a cada canal de marketing é avaliada pelas seguintes métricas:
+
+- **ROAS estimado vs. ROAS verdadeiro por canal**: correlação de Pearson e RMSE entre o ROAS *a posteriori* e o ROAS definido na geração dos dados sintéticos.
+- **Correlação de contribuições**: correlação de Pearson entre as contribuições estimadas e as contribuições verdadeiras por canal.
+- **Canais fantasma** (*ghost channels*): o ROAS estimado para Ghost-A e Ghost-B deve ser aproximadamente zero em todos os braços, funcionando como teste de supressão — um pipeline bem calibrado não deve atribuir efetividade a canais que, por construção, não têm efeito causal sobre a variável resposta.
+
+### 6.6.4 Diagnósticos MCMC — "O amostrador convergiu sem conflito prior-verossimilhança?"
+
+A validade das inferências Bayesianas é condicionada à convergência das cadeias de Markov. Os diagnósticos adotados são:
+
+- **R-hat $< 1{,}05$** para todos os parâmetros do modelo: limiar mais restritivo que o convencional $1{,}1$, adotado especificamente como diagnóstico de conflito prior-verossimilhança — o problema central que motivou a reformulação do módulo de calibração descrita na Seção 6.4.4. Valores de R-hat elevados indicam que as cadeias não convergem para a mesma distribuição *a posteriori*, frequentemente sintoma de priors excessivamente informativos em desacordo com os dados.
+- **ESS mínimo** (*Effective Sample Size*): número de amostras efetivamente independentes produzidas pelas cadeias MCMC; garante que a representação empírica da distribuição *a posteriori* possui resolução suficiente para a estimação das métricas de interesse.
 
 ---
 
