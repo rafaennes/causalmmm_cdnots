@@ -379,7 +379,87 @@ A avaliação quantitativa da descoberta causal requer a construção explícita
 
 ## 6.3 Descoberta da Estrutura Causal via CD-NOTS
 
-[RASCUNHO — ver Task 4]
+### 6.3.1 Justificativa da Escolha Algorítmica
+
+A escolha do algoritmo de descoberta causal neste trabalho foi orientada por três critérios de seleção derivados das características específicas do contexto de MMM: (a) **operacionalidade com amostras reduzidas**, dado que os dados semanais típicos de MMM compreendem N = 104 a 208 observações por geo — volume insuficiente para estimadores paramétricos de alta dimensão; (b) **capacidade de capturar não-estacionariedade temporal**, pois canais de mídia operam sob regimes de sazonalidade, mudanças de estratégia e variações de efetividade ao longo do tempo, tornando a hipótese de estacionariedade estrita implausível; e (c) **controle formal da taxa de falsas descobertas (FDR)**, uma vez que a inferência de um grafo esparso a partir de um grande número de testes simultâneos exige mecanismos estatísticos que delimitem a proporção de arestas espúrias no grafo final.
+
+A tabela a seguir sintetiza os principais métodos considerados e suas limitações frente ao cenário de MMM com amostras reduzidas:
+
+| Método | Tipo | Limitação para MMM com *low-N* |
+|---|---|---|
+| Granger pairwise | Constraint-based | Não controla confounders; ignora mediação inter-canal |
+| VAR (*Vector Autoregression*) | Paramétrico | Requer estacionariedade; sem controle de FDR |
+| DYNOTEARS (Pamfil et al., 2020) | Score-based | Requer N >> p; sem controle de FDR |
+| CausalMMM / Graph VAE (Gong et al., 2024) | *Deep learning* | N ≥ 100 entidades geográficas; não quantifica incerteza |
+| LPCMCI (Gerhardus & Runge, 2020) | Constraint-based | Modela confounders latentes, mas menos eficiente computacionalmente |
+| **CD-NOTS + PCMCI** | **Constraint-based** | **Não-paramétrico; *low-N*; FDR controlado; não-estacionário ✓** |
+
+O CD-NOTS (Sadeghi, Gopal & Fesanghary, 2024) é uma extensão de séries temporais do CD-NOD (Huang et al., 2020), acrescentando ao grafo um nó auxiliar temporal U_t que captura a não-estacionariedade sem exigir janelas deslizantes ou segmentação manual de períodos. Esse nó age como causa comum de todas as variáveis não-estacionárias do sistema, permitindo que o algoritmo identifique mudanças de regime diretamente na estrutura do grafo. O PCMCI (Runge, 2020), adotado como motor de busca, resolve o problema da explosão combinatória do algoritmo PC clássico por meio do teste MCI (*Momentary Conditional Independence*): ao condicionar simultaneamente sobre os pais causais das duas variáveis testadas, os conjuntos de condicionamento permanecem pequenos independentemente do número de variáveis, viabilizando a descoberta causal em grafos com p = 10–20 nós e N = 104–208 observações. A recomendação empírica de Sadeghi et al. (2024) é o uso do estimador ParCorr para N < 200 observações — compatível com os dados semanais típicos de MMM.
+
+---
+
+### 6.3.2 Os Quatro Estágios do CD-NOTS
+
+O algoritmo CD-NOTS opera em quatro estágios sequenciais sobre o conjunto de variáveis observadas:
+
+1. **Adição do nó temporal U_t:** um nó auxiliar indexado pelo tempo é inserido no grafo e conectado como causa comum de todas as variáveis que exibem variação não-estacionária. Esse mecanismo permite ao algoritmo capturar mudanças de regime — como alterações sazonais na efetividade de canais ou variações estruturais na resposta do consumidor — sem a necessidade de testes explícitos de estacionariedade ou particionamento manual da série em janelas temporais homogêneas.
+
+2. **Descoberta de esqueleto causal:** para cada par de variáveis (X_i, X_j) e cada defasagem τ ∈ {1, ..., τ_max}, o teste MCI é executado condicionando sobre os pais causais de ambas as variáveis. No presente trabalho, adota-se `tau_min=1`, excluindo relações contemporâneas, cujo sentido causal é ambíguo em dados semanais de marketing — onde múltiplos efeitos podem ocorrer dentro do mesmo intervalo de amostragem.
+
+3. **Orientação de arestas:** as arestas do esqueleto são orientadas principalmente pela regra de precedência temporal (X_{t-τ} → Y_t implica causalidade direcional, dado que causas antecedem efeitos no tempo) e secundariamente por V-estruturas, isto é, padrões de colisão do tipo X_i → Z ← X_j em que X_i e X_j são d-separáveis condicionalmente a Z.
+
+4. **Orientação residual:** as arestas que permanecem sem orientação após os estágios anteriores são orientadas pelo critério de independência das mudanças causais (*independence of causal changes*), que explora a hipótese de que causas e efeitos variam de forma independente sob intervenções externas. Esse critério permite inferir a direção causal em estruturas que não contêm V-estruturas identificáveis pela regra de precedência temporal.
+
+---
+
+### 6.3.3 Seleção Adaptativa do Teste de Independência Condicional
+
+A escolha do teste de independência condicional é adaptada automaticamente ao número de geos disponíveis, equilibrando poder estatístico e custo computacional:
+
+**Cenário multi-geo (≥ 2 geos) → ParCorr** (correlação parcial com estatística de Fisher-Z):
+
+O estimador ParCorr é 100 a 1000 vezes mais rápido que métodos baseados em kernel (KCIT, RCoT), tornando viável a execução independente de PCMCI por geo dentro de um horizonte de tempo aceitável. A replicação de padrões causais entre múltiplos geos compensa parcialmente a suposição de linearidade: uma aresta detectada consistentemente em diversas regiões geográficas com históricos distintos tem maior probabilidade de refletir uma relação causal genuína do que um artefato da linearização. Os efeitos de *adstock* e saturação são aproximadamente lineares nos segmentos observacionais de dados semanais com N ≥ 100 por geo, justificando a suposição paramétrica do estimador.
+
+**Cenário single-geo (1 geo) → CMIknn** (estimador k-NN de informação mútua condicional):
+
+O estimador CMIknn é não-paramétrico e captura não-linearidades típicas das curvas de *adstock* e saturação sem exigir transformações prévias das variáveis. Seu custo computacional é da ordem de O(N³), aceitável para N ≤ 200 observações. A execução eficiente requer a biblioteca `numba` para compilação JIT dos laços internos do estimador.
+
+---
+
+### 6.3.4 Controle de Múltiplos Testes: Correção Benjamini-Hochberg
+
+Em um experimento com 10 variáveis × 10 variáveis × 2 defasagens, o algoritmo executa aproximadamente 200 testes simultâneos. Sob a hipótese nula global e α = 0,05, esperam-se em torno de 10 falsas descobertas — volume inaceitável para um grafo com esparsidade esperada de 5 a 15 arestas verdadeiras, uma vez que os falsos positivos poderiam constituir parcela substancial do grafo inferido.
+
+O procedimento de Benjamini-Hochberg (BH) controla a taxa de falsas descobertas FDR = E[FP/(TP+FP)] ao nível nominal α (Benjamini & Hochberg, 1995). O BH é preferível ao controle de FWER (*Family-Wise Error Rate*) por Bonferroni no contexto de descoberta causal porque aceita uma proporção controlada de falsos positivos em troca de maior poder de detecção — postura apropriada para grafos esparsos nos quais cada aresta verdadeira tem valor informacional para a calibração dos priors (Benjamini & Hochberg, 1995). O controle de FWER seria excessivamente conservador nesse regime, suprimindo arestas causais genuínas que seriam úteis à etapa de calibração descrita na Seção 6.4.
+
+A implementação distingue dois produtos do procedimento de correção, com papéis distintos na arquitetura do sistema:
+
+- **p-valores brutos** (`edge_pvalues`): retidos exclusivamente para fins de transparência e depuração diagnóstica, **nunca utilizados na calibração de priors**.
+- **q-valores BH-corrigidos** (`edge_qvalues`): consumidos pelo módulo de calibração; interpretáveis como P(H₀ | dados) no arcabouço *Empirical Bayes* (Seção 6.4), oferecendo uma base probabilística coerente para a tradução da evidência causal em ajustes de hiperparâmetros dos priors bayesianos.
+
+---
+
+### 6.3.5 Consenso entre Geos
+
+Quando múltiplos geos estão disponíveis, o PCMCI é executado de forma independente para cada geo — com no máximo cinco geos amostrados aleatoriamente quando o total disponível é maior, de modo a limitar o custo computacional sem comprometer a representatividade geográfica. O grafo de consenso é construído por votação majoritária: a aresta i → j é incluída no grafo final se detectada em pelo menos 50% dos geos analisados. Os q-valores de consenso são calculados como médias condicionais dos q-valores BH-corrigidos de cada geo que detectou a aresta em questão.
+
+O mecanismo de consenso opera como filtro natural contra arestas espúrias: uma aresta causal verdadeira, presente em múltiplos geos com características distintas, acumula evidências independentes e sobrevive ao limiar de votação majoritária; uma aresta espúria, detectada por acaso em apenas um geo, é suprimida. Essa propriedade é particularmente valiosa em MMM, onde dados de diferentes regiões geográficas refletem o mesmo sistema causal subjacente — a resposta da demanda a investimentos em mídia — ainda que com parâmetros quantitativamente distintos.
+
+---
+
+### 6.3.6 Restrições Estruturais Específicas de MMM
+
+O conhecimento de domínio sobre a estrutura causal do MMM é codificado como restrições estruturais que eliminam arestas impossíveis antes da busca, reduzindo o espaço de grafos explorado e aumentando o poder de detecção das arestas remanescentes.
+
+Duas classes de restrições são impostas:
+
+- **A variável resposta não causa nada:** por precedência temporal e pela lógica do fenômeno — as vendas são o resultado das ações de marketing, não sua causa — a variável de resposta (vendas) não pode causar canais de mídia nem variáveis de controle. Essa restrição elimina a linha inteira da variável resposta na matriz de arestas potenciais.
+
+- **Variáveis de controle são exógenas:** variáveis de controle como preço e sazonalidade são determinadas por fatores externos à estratégia de mídia; canais de marketing não causam preço nem índices sazonais. Essa restrição elimina as arestas do tipo canal → controle.
+
+Ambas as restrições são transmitidas ao PCMCI por meio do argumento `link_assumptions`, que permite especificar, para cada par de variáveis, quais direções e defasagens são permitidas na busca. O resultado é uma redução substancial do número de testes executados, com ganho direto em poder estatístico para as hipóteses testadas e redução do tempo de execução do algoritmo.
+
+---
 
 ## 6.4 Tradução do Grafo em Priors Estruturais (Empirical Bayes)
 
