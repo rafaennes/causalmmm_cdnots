@@ -279,7 +279,50 @@ Nenhum trabalho publicado utiliza a saída de algoritmos de descoberta causal te
 
 ## 6.1 Visão Geral: O Experimento de 4 Braços
 
-[RASCUNHO — ver Task 2]
+Esta seção descreve a estrutura geral do experimento controlado conduzido para avaliar a contribuição da descoberta de estruturas causais à calibração de modelos Bayesianos em Marketing Mix Modeling. O experimento é organizado em torno de três perguntas de pesquisa centrais: (1) O algoritmo CD-NOTS consegue descobrir estruturas causais informativas a partir de 104–208 observações por geo? (2) A tradução do grafo causal descoberto em ajustes de priors Bayesianos melhora as métricas preditivas e de atribuição dos modelos PyMC-Marketing e Meridian? (3) Qual o ganho marginal da descoberta causal sobre os modelos baseline, e em quais cenários esse ganho é mais pronunciado? Para responder a essas perguntas de forma rigorosa e comparável, adota-se um delineamento experimental de quatro braços, conforme detalhado a seguir.
+
+### Delineamento dos Quatro Braços
+
+O experimento compara quatro configurações de modelagem que combinam, de forma fatorial, a presença ou ausência de descoberta causal com a escolha do framework Bayesiano de MMM:
+
+| Braço | Descoberta Causal | Framework | Priors |
+|-------|-------------------|-----------|--------|
+| 1 | Nenhuma (manual) | PyMC-Marketing | Padrão (spend-share) |
+| 2 | Nenhuma (manual) | Meridian | Padrão (spend-share) |
+| 3 | CD-NOTS | PyMC-Marketing | Calibrados pelo grafo |
+| 4 | CD-NOTS | Meridian | Calibrados pelo grafo |
+
+A comparação entre braços 1 vs. 3 e 2 vs. 4 isola o efeito da descoberta causal mantendo constante o framework Bayesiano.
+
+### Pipeline Ponta a Ponta
+
+O diagrama abaixo ilustra o fluxo completo de dados e decisões metodológicas compartilhado pelos quatro braços:
+
+```
+Dataset Sintético causal_business (156 semanas × 4 geos × 8 canais)
+         │
+         ├─────────────────────────────────────────┐
+         │  (todos os braços usam dados idênticos)  │
+         ▼                                         ▼
+   [Braços 1 e 2]                          [Braços 3 e 4]
+   Priors padrão                            CD-NOTS Discovery
+   (proporcional ao spend)                         │
+         │                             ┌───────────┘
+         │                             ▼
+         │                   Tradução: Grafo → Priors
+         │                   (Empirical Bayes, Seção 6.4)
+         │                             │
+         │               ┌────────────┴────────────┐
+         │               ▼                         ▼
+         │       PyMC + CD-NOTS           Meridian + CD-NOTS
+         │               │                         │
+         └───────────────┴─────────────────────────┘
+                                  │
+                           Avaliação Unificada
+              SHD / Precision / ROAS / R² / R-hat (Seção 6.6)
+```
+
+Os Braços 1 e 2 são executados via o framework de benchmark `mmm_param_recovery` sem modificação. Os Braços 3 e 4 estendem esse framework com os módulos de descoberta e calibração desenvolvidos nesta pesquisa, descritos na Seção 6.3 e 6.4, respectivamente.
 
 ## 6.2 Dados Sintéticos com Estrutura Causal Conhecida
 
