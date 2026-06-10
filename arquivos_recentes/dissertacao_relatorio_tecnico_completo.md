@@ -463,7 +463,110 @@ Ambas as restrições são transmitidas ao PCMCI por meio do argumento `link_ass
 
 ## 6.4 Tradução do Grafo em Priors Estruturais (Empirical Bayes)
 
-[RASCUNHO — ver Task 5]
+### 6.4.1 Fundamento: q-value como Aproximação de P(H₀ | dados)
+
+A etapa central do pipeline CD-NOTS consiste em converter a saída da descoberta causal — expressa na forma de q-values produzidos pelo PCMCI com controle FDR via Benjamini-Hochberg — em parâmetros de distribuições a priori para os coeficientes do modelo de atribuição. Esta conversão é fundamentada no arcabouço de Empirical Bayes (Storey, 2002; Efron, 2010, Cap. 5).
+
+Sob o arcabouço de Empirical Bayes com controle FDR via procedimento de Benjamini-Hochberg, o q-value satisfaz a propriedade assintótica:
+
+$$q_i \approx P(H_0 \mid \text{dados}_i)$$
+
+onde $H_0$ é a hipótese nula de ausência de uma aresta causal. Consequentemente, a **probabilidade de inclusão posterior** (*posterior inclusion probability*, PIP) — isto é, a probabilidade de que o efeito causal seja real dado os dados observados — é definida como o complemento:
+
+$$\text{PIP}_i = 1 - q_i \approx P(H_A \mid \text{dados}_i) = P(\text{efeito causal real} \mid \text{dados})$$
+
+Esta identidade constitui a ponte formal central desta etapa do pipeline: ela conecta rigorosamente uma saída da descoberta causal (o q-value, calculado pelo PCMCI com correção BH) a uma quantidade diretamente interpretável no paradigma bayesiano (a PIP). Um canal com $q = 0{,}01$ tem $\text{PIP} = 0{,}99$ — probabilidade posterior de 99% de que o efeito causal é real, e a distribuição a priori deve ser suficientemente difusa para que os dados determinem livremente a magnitude do efeito. Um canal excluído com $q = 0{,}99$ tem $\text{PIP} = 0{,}01$ — evidência fortíssima contra a presença de efeito, e a priori deve regularizar fortemente em direção ao zero.
+
+---
+
+### 6.4.2 Prior Ideal: Mistura Spike-and-Slab
+
+A distribuição a priori ideal para o coeficiente de canal $\beta$ é a mistura discreta *spike-and-slab* (Ishwaran & Rao, 2005):
+
+$$\beta \sim \text{PIP} \times \text{HalfNormal}(\sigma_{\text{base}}) + (1 - \text{PIP}) \times \delta(0)$$
+
+onde $\delta(0)$ denota a massa de probabilidade pontual em zero. Esta especificação formaliza dois estados mutuamente exclusivos: com probabilidade PIP, o coeficiente $\beta$ assume um valor positivo com dispersão $\sigma_{\text{base}}$ (canal com efeito causal real); com probabilidade $(1 - \text{PIP})$, o coeficiente é exatamente zero (canal sem efeito).
+
+Não obstante sua elegância formal, esta especificação discreta é intratável em MCMC. A presença de variáveis latentes binárias — que determinam a qual componente da mistura cada amostra pertence — produz convergência lenta e exploração deficiente do espaço posterior, tornando o uso direto desta formulação impraticável em modelos de escala razoável.
+
+---
+
+### 6.4.3 Relaxação Contínua: A Fórmula Central
+
+A relaxação contínua do *spike-and-slab* (Ishwaran & Rao, 2005) substitui a massa pontual $\delta(0)$ por uma HalfNormal de largura mínima e interpola linearmente entre os extremos do espectro de regularização. O desvio padrão ajustado da distribuição a priori é dado pela **fórmula central**:
+
+$$\sigma_{\text{adj}} = \sigma_{\text{base}} \times \left(\underbrace{\text{MIN\_SIGMA\_RATIO}}_{\text{spike}} + \underbrace{(1 - \text{MIN\_SIGMA\_RATIO})}_{\text{escala}} \times \text{PIP}\right)$$
+
+Com $\text{MIN\_SIGMA\_RATIO} = 0{,}4$, a fórmula se especializa em:
+
+$$\sigma_{\text{adj}} = \sigma_{\text{base}} \times \left(0{,}4 + 0{,}6 \times (1 - q)\right)$$
+
+As propriedades de interpolação da fórmula são:
+
+- **PIP = 1** ($q \approx 0$): $\sigma_{\text{adj}} = \sigma_{\text{base}} \times 1{,}0$ — prior máximo; os dados determinam livremente a magnitude do efeito.
+- **PIP = 0** ($q \approx 1$): $\sigma_{\text{adj}} = \sigma_{\text{base}} \times 0{,}4$ — regularização máxima; a priori contrai o coeficiente em direção ao zero.
+
+Desta forma, a fórmula implementa, de maneira contínua e diferenciável, o comportamento qualitativo do *spike-and-slab* discreto, sem introduzir variáveis latentes binárias que comprometeriam a eficiência amostral do NUTS.
+
+---
+
+### 6.4.4 Derivação de MIN_SIGMA_RATIO = 0,4
+
+A constante $\text{MIN\_SIGMA\_RATIO} = 0{,}4$ não é uma escolha arbitrária. Ela representa a largura mínima do componente *spike* na relaxação contínua, e sua determinação foi empírica, conduzida durante o desenvolvimento do pipeline.
+
+Valores abaixo de $0{,}3$ causam conflito entre prior e verossimilhança, manifestado como $\hat{R} > 1{,}8$ nos diagnósticos MCMC — indicativo de que a prior excessivamente estreita impede o amostrador NUTS de explorar adequadamente o espaço posterior, levando as cadeias a comportamentos patológicos (divergências, mistura deficiente). O valor $0{,}4$ é o mínimo que preserva a tratabilidade do amostrador em ambos os frameworks bayesianos testados (PyMC-Marketing e Meridian). O complemento $(1 - 0{,}4) = 0{,}6$ é uma consequência algébrica deste valor, não um parâmetro independente.
+
+A tabela a seguir ilustra o comportamento da fórmula central para diferentes perfis de canal:
+
+| Tipo de canal | q-value | PIP = 1−q | $\sigma_{\text{adj}} / \sigma_{\text{base}}$ |
+|---|---|---|---|
+| Direto, evidência forte | 0,01 | 0,99 | ≈ 1,00 |
+| Direto, evidência moderada | 0,20 | 0,80 | 0,88 |
+| Mediado, borderline | 0,50 | 0,50 | 0,70 |
+| Excluído, evidência fraca | 0,20 | 0,80 | 0,88 |
+| Excluído, evidência confiante | 0,90 | 0,10 | 0,46 |
+| Excluído, evidência muito confiante | 0,99 | 0,01 | ≈ 0,40 |
+
+Uma assimetria fundamental emerge da tabela: quando a evidência de exclusão é fraca ($q = 0{,}20$), o multiplicador é $0{,}88$ — quase nenhuma regularização — porque a incerteza é elevada e o modelo deve deferir aos dados. Somente quando a exclusão é confiante ($q \geq 0{,}90$) a prior exerce regularização substancial. Esta propriedade é desejável: ela garante que o pipeline não penalize indevidamente canais cujo status causal permanece incerto, reservando a contração forte apenas para os casos em que a descoberta causal produziu evidência robusta de ausência de efeito.
+
+---
+
+### 6.4.5 Canais Mediados: q-value do Elo Mais Fraco
+
+Canais que alcançam $y$ exclusivamente por mediação — isto é, para os quais existe um caminho $\text{ch} \to \cdots \to y$ no grafo causal, mas não uma aresta direta $\text{ch} \to y$ — apresentam um desafio adicional: a confiança no efeito total é limitada pelo elo mais incerto ao longo do caminho.
+
+Para estes canais, é empregada uma busca BFS com critério *min-max*: dentre todos os caminhos $\text{ch} \to \cdots \to y$ com profundidade $\leq 3$, seleciona-se o caminho que minimiza o q-value máximo ao longo de seus elos — ou seja, o caminho em que o pior elo é o menos incerto possível. Este q-value do elo mais fraco no melhor caminho disponível é então utilizado como $q$ na fórmula central da Seção 6.4.3.
+
+Esta abordagem formaliza a intuição de que a força de uma cadeia causal é determinada por seu elo mais fraco: mesmo que todos os elos individuais apresentem evidência moderada, a composição de incertezas ao longo de caminhos longos deve ser refletida em uma prior mais conservadora.
+
+---
+
+### 6.4.6 Ajuste do Prior de Adstock: Beta(1, α_b)
+
+O decaimento geométrico de adstock utiliza distribuição a priori $\text{Beta}(1, \alpha_b)$, onde valores elevados de $\alpha_b$ concentram a distribuição próxima ao zero, implicando decaimento rápido do efeito de carryover. A PIP modula $\alpha_b$ linearmente:
+
+$$\alpha_b = \text{clip}\!\left(3{,}0 - 2{,}0 \times \text{PIP},\quad \min=1{,}0,\quad \max=5{,}0\right)$$
+
+Os casos extremos são:
+
+- **Canal com PIP $\approx$ 1**: $\alpha_b \approx 1{,}0$ $\Rightarrow$ $\text{Beta}(1, 1) = \text{Uniforme}[0,1]$ — prior de adstock completamente não-informativa, máxima flexibilidade.
+- **Canal com PIP $\approx$ 0**: $\alpha_b \approx 3{,}0$ $\Rightarrow$ $\text{Beta}(1, 3)$ — prior com média em $0{,}25$, concentrando massa em decaimentos rápidos.
+
+A racionalidade desta modulação é a seguinte: canais confirmados causalmente recebem priors de adstock flexíveis porque há evidência de que seu efeito persiste no tempo e o modelo deve estimar livremente a duração desse efeito. Canais excluídos recebem prior de decaimento rápido porque, na ausência de um efeito causal, qualquer persistência aparente nas correlações entre gastos e vendas é mais provavelmente ruído ou confundimento do que carryover genuíno.
+
+---
+
+### 6.4.7 Penalidade de Endogeneidade
+
+Para canais detectados como confundidos por uma variável de controle — isto é, canais para os quais o grafo causal contém a aresta $\text{controle} \to \text{canal}$ — aplica-se uma penalidade proporcional ao coeficiente de determinação $R^2$ da regressão linear do canal sobre o controle:
+
+$$\text{tolerance} = \max\!\left(\text{MIN\_SIGMA\_RATIO},\; 1 - R^2\right)$$
+
+$$\text{multiplier\_final} = \max\!\left(\text{MIN\_SIGMA\_RATIO},\; \text{multiplier\_PIP} \times \text{tolerance}\right)$$
+
+O $R^2$ é calculado como o quadrado da correlação de Pearson entre a série temporal do controle e a série temporal do canal nos dados observados — uma medida orientada pelos dados do grau de confundimento. Quanto maior a proporção da variância do canal explicada pelo controle, menor a confiança na estimativa de efetividade do canal, e menor o multiplicador final — sempre respeitando o piso $\text{MIN\_SIGMA\_RATIO} = 0{,}4$ para preservar a tratabilidade amostral.
+
+A penalidade de endogeneidade opera de forma multiplicativa sobre o multiplicador PIP já calculado, de modo que um canal com alta PIP mas alto $R^2$ de confundimento resulta em prior moderadamente restritiva — reconhecendo simultaneamente a evidência causal e a contaminação por covariância espúria com variáveis de controle.
 
 ## 6.5 Frameworks Bayesianos e o Framework de Comparação
 
