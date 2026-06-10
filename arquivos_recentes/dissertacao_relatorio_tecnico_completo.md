@@ -326,7 +326,56 @@ Os Braços 1 e 2 são executados via o framework de benchmark `mmm_param_recover
 
 ## 6.2 Dados Sintéticos com Estrutura Causal Conhecida
 
-[RASCUNHO — ver Task 3]
+### 6.2.1 Motivação para Dados Sintéticos
+
+A utilização de dados sintéticos com estrutura causal conhecida é uma estratégia metodológica amplamente adotada em pesquisas de descoberta causal, pois elimina a ambiguidade inerente aos dados observacionais reais. Quando o grafo causal subjacente é definido pelo próprio pesquisador no momento da geração dos dados, torna-se possível calcular métricas de recuperação exata — como o *Structural Hamming Distance* (SHD) e a *False Discovery Rate* (FDR) — que quantificam, com precisão, o quanto a estrutura inferida pelo algoritmo se afasta do *ground truth*. Adicionalmente, o controle experimental rigoroso permite variar sistematicamente a estrutura causal — adicionando, removendo ou reorientando arestas — sem alterar quaisquer outros parâmetros do ambiente, o que isola o efeito de cada configuração estrutural sobre o desempenho do modelo. Por fim, a geração sintética elimina restrições de confidencialidade, permitindo que os dados de treinamento e avaliação sejam integralmente reproduzíveis e divulgados como material suplementar à dissertação.
+
+### 6.2.2 Framework de Configuração: `MMMDataConfig`
+
+A geração de dados sintéticos neste trabalho é centralizada no *dataclass* `MMMDataConfig`, que agrupa todas as dimensões configuráveis de um experimento de MMM em um único objeto declarativo. O campo `n_periods` define o horizonte temporal do painel em semanas. O campo `channels`, do tipo `List[ChannelConfig]`, especifica cada canal de mídia com seu nome, padrão de gasto ao longo do tempo (`linear_trend`, `seasonal` ou `on_off`) e efetividade base sobre as vendas. O campo `causal_edges`, do tipo `List[CausalEdgeConfig]`, declara as relações causais inter-canal que compõem o *ground truth* do experimento — sendo este o campo central para os objetivos desta pesquisa, pois é a partir dele que o grafo verdadeiro é construído e, posteriormente, comparado com o grafo descoberto pelo CD-NOTS. O campo `regions`, do tipo `RegionConfig`, determina o número de unidades geográficas (geos) e os parâmetros de vendas base. O campo `transforms`, do tipo `TransformConfig`, seleciona o tipo de função de *adstock* e a função de saturação aplicadas a cada canal. Por fim, o campo `control_variables`, do tipo `List[ControlConfig]`, registra variáveis de controle exógenas — como preço, sazonalidade ou indicadores macroeconômicos — cujos efeitos são incorporados ao processo gerador de dados.
+
+### 6.2.3 Preset `causal_business`: Estrutura Causal Conhecida
+
+O preset denominado `causal_business` foi desenvolvido especificamente para os experimentos desta dissertação, com o objetivo de reproduzir, em escala reduzida, a complexidade estrutural de uma conta de mídia de varejo. Esse preset combina canais com efetividade real, canais fantasma e relações causais inter-canal, fornecendo ao mesmo tempo um *ground truth* preciso e um ambiente controlado para avaliação dos algoritmos de descoberta causal. As dimensões gerais do preset são apresentadas na Tabela 1.
+
+**Tabela 1 — Dimensões do preset `causal_business`**
+
+| Dimensão | Valor |
+|----------|-------|
+| Períodos | 156 semanas (3 anos) |
+| Geos | 4 (geo_a, geo_b, geo_c, geo_d) |
+| Canais com efeito real | 6 (Search-Ads, Brand-Search, TV, Video, Social-Media, Display-Ads) |
+| Canais ghost | 2 (Ghost-A, Ghost-B: efetividade = 0) |
+| Controles | 1 (preço, efeito = −0,3) |
+| Arestas causais inter-canal | 3 |
+
+Os canais *ghost* (Ghost-A e Ghost-B) possuem `base_effectiveness = 0,0`, ou seja, não exercem nenhum efeito causal sobre as vendas. Sua inclusão no preset é intencional: esses canais testam a capacidade do algoritmo de supressão de *priors*, na medida em que o *prior* atribuído a canais identificados como sem efeito deve convergir para valores próximos ao limiar mínimo `MIN_SIGMA_RATIO = 0,4`. As arestas causais inter-canal que constituem o *ground truth* do preset são apresentadas na Tabela 2.
+
+**Tabela 2 — Arestas causais inter-canal (ground truth do preset `causal_business`)**
+
+| Aresta | Defasagem | Tamanho do efeito | Interpretação mercadológica |
+|--------|-----------|-------------------|-----------------------------|
+| TV → Search-Ads | 2 semanas | 0,20 | Publicidade de *branding* em TV aumenta a busca paga 2 semanas depois |
+| Social-Media → Brand-Search | 1 semana | 0,15 | Engajamento social impulsiona busca por marca na semana seguinte |
+| Video → Social-Media | 1 semana | 0,10 | Vídeo *online* aumenta engajamento em redes sociais |
+
+Além das relações inter-canal, o preset incorpora uma fonte de endogeneidade: a variável de controle preço exerce efeito positivo sobre os gastos em Search-Ads, simulando o fenômeno em que promoções de preço estimulam o aumento simultâneo de investimento em busca paga. Essa estrutura confunde a estimativa de efetividade do canal Search-Ads e representa, portanto, um caso em que a descoberta causal pode contribuir para o diagnóstico e a correção de viés de atribuição.
+
+### 6.2.4 Mecanismo de Spillover Causal
+
+A geração dos dados sintéticos é realizada em duas fases distintas. Na primeira fase, os gastos de cada canal são gerados independentemente, de acordo com o padrão de gasto especificado em `ChannelConfig` (tendência linear, sazonalidade ou padrão *on-off*). Na segunda fase, aplicam-se os efeitos de *spillover* inter-canal definidos em `causal_edges`: para cada aresta do *ground truth*, o gasto do canal de origem é transformado por uma função de *adstock* exponencial e, após uma defasagem temporal (*lag*), adicionado ao gasto do canal de destino, ponderado pelo tamanho do efeito (`effect_size`). As equações que governam esse mecanismo são apresentadas a seguir:
+
+$$\text{adstocked}[t] = \text{source\_spend}[t] + \text{decay} \times \text{adstocked}[t-1]$$
+
+$$\text{spillover}[t] = \text{effect\_size} \times \text{adstocked}[t - \text{lag}], \quad t \geq \text{lag}$$
+
+$$\text{channel\_spends}[\text{target}][t] \mathrel{+}= \text{spillover}[t]$$
+
+O parâmetro `effect_size` controla a magnitude relativa do *spillover*: valores próximos de 0,20 representam influências moderadas, como a de TV sobre Search-Ads, enquanto valores menores, como 0,10, representam influências mais sutis. Um aspecto relevante desse mecanismo é a composicionalidade dos efeitos mediados: a relação Video → Social-Media → Brand-Search, por exemplo, não é declarada explicitamente como uma aresta direta no *ground truth*, mas emerge da composição das duas arestas individuais, testando a capacidade do algoritmo de distinguir efeitos diretos de efeitos mediados.
+
+### 6.2.5 Ground Truth para Avaliação
+
+A avaliação quantitativa da descoberta causal requer a construção explícita da matriz de adjacência verdadeira, tarefa realizada pela função `_build_causal_ground_truth()`. Essa função percorre a configuração do preset e registra três categorias de informação: (a) as arestas inter-canal declaradas em `causal_edges`, refletindo as relações de *spillover* entre canais; (b) as arestas canal→variável resposta para todos os canais com `base_effectiveness > 0`, indicando os canais que exercem efeito causal mensurável sobre as vendas; e (c) a ausência de arestas para os canais *ghost*, cujo efeito é nulo por construção. A matriz resultante é utilizada na Seção 6.6 como referência para o cálculo das métricas estruturais — SHD, *Precision*, *Recall* e FDR — permitindo uma avaliação rigorosa e reproduzível da qualidade do grafo descoberto pelo CD-NOTS.
 
 ## 6.3 Descoberta da Estrutura Causal via CD-NOTS
 
