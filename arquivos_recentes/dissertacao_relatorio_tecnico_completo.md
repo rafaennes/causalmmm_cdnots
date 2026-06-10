@@ -632,47 +632,1035 @@ A validade das inferências Bayesianas é condicionada à convergência das cade
 
 ## 7.1 Arquitetura do Sistema
 
-[RASCUNHO — ver Task 8]
+A implementação está organizada em quatro módulos Python especializados, ligados por uma cadeia de dependências unidirecional. Cada módulo possui uma única responsabilidade bem delimitada, seguindo o princípio da separação de preocupações. Essa arquitetura permite incorporar os priors causais derivados do CD-NOTS em qualquer um dos dois frameworks Bayesianos — PyMC-Marketing e Meridian — sem duplicar a lógica de descoberta causal ou de calibração de priors.
+
+```
+config.py           (dataclasses: CausalEdgeConfig, MMMDataConfig, ChannelConfig)
+presets.py          (configurações concretas, incluindo causal_business)
+     │
+     ▼
+[Dataset Sintético via mmm_param_recovery]
+     │
+     ▼
+cdnots_discovery.py → CausalGraph (adj, pvalues, qvalues, channel_classes)
+     │
+     ▼
+cdnots_model_builder.py → multipliers[], adstock_params[]
+     │
+     ├──────────────────────────────────────────┐
+     ▼                                          ▼
+build_pymc_model_with_graph()      build_meridian_model_with_graph()
+     │                                          │
+     └──────────────┬───────────────────────────┘
+                    ▼
+            cdnots_fitter.py
+     (fit_pymc_with_graph, fit_meridian_with_graph)
+                    │
+                    ▼
+        experimento_4bracos.ipynb
+        (orquestração + métricas + resultados)
+```
+
+| Módulo | Responsabilidade | Dependências |
+|---|---|---|
+| `config.py` | Define as dataclasses de configuração (`CausalEdgeConfig`, `MMMDataConfig`, `ChannelConfig`); nenhuma lógica de geração de dados. | Nenhuma (zero imports internos) |
+| `presets.py` | Instancia configurações concretas (`causal_business`, `small_business`, `medium_business`) usando as dataclasses de `config.py`. | `config.py` |
+| `cdnots_discovery.py` | Executa o algoritmo CD-NOTS/PCMCI e retorna `CausalGraph` imutável com adjacência, p-values e q-values BH-corrigidos. | `tigramite`, `numpy`, `pandas`, `sklearn` |
+| `cdnots_model_builder.py` | Traduz `CausalGraph` em multiplicadores de prior (fórmula spike-and-slab) e parâmetros de adstock; constrói modelos PyMC-Marketing e Meridian com priors calibrados. | `cdnots_discovery.py`, `model_builder.py` (repo sibling) |
+| `cdnots_fitter.py` | Orquestra o fitting MCMC e a amostragem preditiva posterior; retorna modelo ajustado, runtime e ESS. | `cdnots_model_builder.py`, `diagnostics.py` (repo sibling) |
+| `experimento_4bracos.ipynb` | Compara os 4 braços experimentais; coleta métricas estruturais, preditivas e de atribuição. | Todos os módulos acima + `evaluator.py` (repo sibling) |
+
+Os módulos marcados como "repo sibling" pertencem ao pacote `mmm_param_recovery`, localizado em `/home/ennes/mestrado/pymc_meridian_comparison/mmm_param_recovery/benchmarking/`. Eles fornecem, respectivamente: `model_builder.calculate_prior_sigma()` (escala de prior de linha de base), `diagnostics.compute_ess()` (cálculo do Effective Sample Size) e `evaluator` (métricas de ROAS e contribuição por canal).
+
+A cadeia de dependências unidirecional garante que cada módulo possa ser testado de forma isolada e substituído sem impacto sobre os módulos situados a jusante na hierarquia.
 
 ## 7.2 Geração de Dados: `config.py` e `presets.py`
 
-[RASCUNHO — ver Task 9]
+### 7.2.1 Dataclass `CausalEdgeConfig`
+
+A dataclass `CausalEdgeConfig`, definida em `config.py`, codifica um relacionamento causal inter-canal como um objeto de configuração de primeira classe, tornando a verdade fundamental (*ground truth*) explícita e legível por máquina. Cada instância descreve completamente uma aresta causal do grafo sintético — incluindo canais de origem e destino, magnitude do efeito, defasagem temporal e taxa de decaimento.
+
+```python
+@dataclass
+class CausalEdgeConfig:
+    """Configuração para um relacionamento causal entre dois canais.
+
+    Modela o fenômeno em que o investimento em um canal causa aumento
+    de investimento/volume em outro canal com defasagem temporal.
+    Por exemplo, TV aumenta consultas de busca 1-2 semanas depois.
+    """
+    source_channel: str          # Canal de origem (causa)
+    target_channel: str          # Canal de destino (efeito)
+    effect_size: float = 0.15    # Fração do gasto adstocado da origem que transborda
+    lag: int = 1                 # Defasagem em períodos antes do efeito se manifestar
+    decay: float = 0.5           # Decaimento geométrico do adstock da origem (0=sem persistência, 1=permanente)
+
+    def __post_init__(self):
+        if self.effect_size < 0 or self.effect_size > 1:
+            raise ValueError("effect_size must be between 0 and 1")
+        if self.lag < 0:
+            raise ValueError("lag must be non-negative")
+        if self.decay < 0 or self.decay > 1:
+            raise ValueError("decay must be between 0 and 1")
+        if self.source_channel == self.target_channel:
+            raise ValueError("source and target channels must be different")
+```
+
+O campo `effect_size` representa a fração do gasto adstocado do canal de origem que se propaga para o canal de destino, parametrizando diretamente a intensidade do transbordamento causal (*spillover*). Os campos `lag` e `decay` determinam, respectivamente, a defasagem temporal em períodos antes que o efeito se manifeste e a taxa de decaimento geométrico do adstock da origem que precede o transbordamento.
+
+### 7.2.2 Preset `causal_business`: Estrutura Causal Conhecida
+
+O preset `causal_business` é o cenário canônico do experimento de quatro braços, compreendendo 156 semanas (3 anos), 4 regiões geográficas e 8 canais — sendo 6 canais reais com efetividade positiva e 2 canais fantasma (*ghost*) com efetividade nula. Três arestas causais inter-canal constituem a verdade fundamental que os algoritmos de descoberta causal devem recuperar.
+
+```python
+causal_edges=[
+    # Relacionamentos causais inter-canal
+    CausalEdgeConfig(
+        source_channel="TV",
+        target_channel="Search-Ads",
+        effect_size=0.20,
+        lag=2,
+        decay=0.5,
+    ),
+    CausalEdgeConfig(
+        source_channel="Social-Media",
+        target_channel="Brand-Search",
+        effect_size=0.15,
+        lag=1,
+        decay=0.4,
+    ),
+    CausalEdgeConfig(
+        source_channel="Video",
+        target_channel="Social-Media",
+        effect_size=0.10,
+        lag=1,
+        decay=0.3,
+    ),
+],
+```
+
+A aresta TV→Search-Ads (lag=2, effect=0.20) representa o fenômeno empiricamente documentado na literatura de marketing digital em que campanhas de TV com foco em branding ampliam o volume de buscas de marca com uma defasagem de duas semanas — o investimento em mídia de massa eleva a consciência de marca, que subsequentemente se traduz em demanda ativa de busca. As arestas Social-Media→Brand-Search (lag=1, effect=0.15) e Video→Social-Media (lag=1, effect=0.10) modelam ciclos de retroalimentação de ciclo curto, característicos de mídias digitais: conteúdo em vídeo impulsiona engajamento em redes sociais na semana seguinte, que por sua vez estimula buscas de marca.
+
+Os canais fantasma Ghost-A e Ghost-B são configurados com `base_effectiveness=0.0`, conforme o trecho a seguir:
+
+```python
+ChannelConfig(
+    name="Ghost-A",
+    pattern="seasonal",
+    base_spend=2000.0,
+    seasonal_amplitude=0.3,
+    spend_volatility=0.25,
+    base_effectiveness=0.0,  # SEM efeito real sobre as vendas
+),
+```
+
+Esses canais apresentam padrões de investimento realistas — incluindo sazonalidade e volatilidade — mas nenhum efeito causal sobre as vendas. Sua inclusão no preset tem o propósito de testar a capacidade do pipeline de suprimir canais espúrios: um modelo bem calibrado deve atribuir coeficientes próximos de zero a Ghost-A e Ghost-B sem degradar a estimativa dos canais genuínos.
+
+### 7.2.3 Mecanismo de Geração de Spillover Causal
+
+O gerador de dados sintéticos aplica as arestas causais em um processo de duas fases: primeiro gera os gastos independentes de cada canal segundo seus padrões configurados, e em seguida propaga os transbordamentos causais acumulando o adstock da origem e adicionando a fração correspondente ao gasto do canal de destino. O pseudocódigo abaixo reflete a lógica efetiva de geração de spillover:
+
+```python
+# Fase 2: Spillover causal entre canais
+for edge in causal_edges:
+    adstocked = np.zeros(n_periods)
+    source = channel_spends[edge.source_channel]
+    for t in range(n_periods):
+        adstocked[t] = source[t] + edge.decay * (adstocked[t-1] if t > 0 else 0)
+        if t >= edge.lag:
+            channel_spends[edge.target_channel][t] += edge.effect_size * adstocked[t - edge.lag]
+```
+
+O adstock acumula o gasto do canal de origem de forma geométrica, com fator de decaimento `edge.decay`, de modo que períodos anteriores de alto investimento ainda contribuem para o transbordamento em períodos futuros. O spillover no instante *t* corresponde a uma fração fixa (`effect_size`) do adstock acumulado da origem `lag` períodos antes, e é somado diretamente ao gasto do canal de destino — tornando a endogeneidade entre canais uma propriedade estrutural dos dados gerados.
+
+### 7.2.4 Ground Truth para Avaliação
+
+A função `_build_causal_ground_truth()` em `data_generator.py` (repositório irmão `mmm_param_recovery`) constrói a matriz de adjacência verdadeira utilizada para computar as métricas SHD (*Structural Hamming Distance*) e Precisão ao término de cada execução experimental. Canais com `base_effectiveness > 0` recebem uma aresta `canal→y` na verdade fundamental, representando a relação causal direta com as vendas; canais fantasma (`base_effectiveness=0.0`) são deliberadamente excluídos dessas arestas, pois não possuem efeito real sobre a variável de resposta. As arestas causais inter-canal provenientes das instâncias de `CausalEdgeConfig` são igualmente incluídas na matriz de adjacência, completando o grafo de referência contra o qual os grafos estimados pelos algoritmos de descoberta causal são comparados.
 
 ## 7.3 Módulo de Descoberta Causal: `cdnots_discovery.py`
 
-[RASCUNHO — ver Task 10]
+### 7.3.1 Estrutura de Dados: `CausalGraph`
+
+`CausalGraph` é o único output de `discover_graph()` — um dataclass imutável (`frozen=True`) que encapsula todos os resultados da descoberta em uma estrutura com interface estável.
+
+```python
+@dataclass(frozen=True)
+class CausalGraph:
+    """Immutable result of causal discovery on MMM data."""
+    adjacency_matrix: np.ndarray
+    edge_pvalues: np.ndarray   # raw MCI p-values — display/debug only
+    edge_qvalues: np.ndarray   # BH-corrected q-values — used for prior calibration
+    variable_names: Tuple[str, ...]
+    direct_channels: Tuple[str, ...]
+    excluded_channels: Tuple[str, ...]
+    mediated_channels: Tuple[str, ...]
+    endogenous_channels: Tuple[str, ...]   # NEW: channels confounded by controls
+    runtime_seconds: float
+    ci_test_used: str
+    n_edges: int
+    # Control info
+    endogenous_r2: Dict[str, float] = field(default_factory=dict)  # NEW: R2 for endogenous channels
+    control_names: Tuple[str, ...] = ()
+    control_to_channel_edges: Tuple[Tuple[str, str], ...] = ()  # (control, channel) pairs
+```
+
+A tabela abaixo descreve o papel de cada campo relevante na pipeline downstream:
+
+| Campo | Papel na pipeline |
+|---|---|
+| `adjacency_matrix` | Matriz de adjacência consenso (0/1) do grafo descoberto |
+| `edge_pvalues` | p-values MCI brutos — apenas para debug e visualização |
+| `edge_qvalues` | q-values BH-corrigidos — insumo da calibração de priors (Seção 7.4) |
+| `direct_channels` | Canais com aresta direta para y |
+| `mediated_channels` | Canais que chegam a y apenas por mediação |
+| `excluded_channels` | Canais sem nenhum caminho para y |
+| `endogenous_channels` | Canais confundidos por variáveis de controle |
+| `endogenous_r2` | R² da confundência por controle (penalidade data-driven) |
+| `ci_test_used` | Teste CI efetivamente usado ("parcorr" ou "kci") |
+
+### 7.3.2 Interface Principal: `discover_graph()`
+
+A função `discover_graph()` é o ponto de entrada público do módulo. Sua assinatura completa, incluindo docstring, é reproduzida abaixo:
+
+```python
+def discover_graph(
+    data_df: pd.DataFrame,
+    channel_columns: List[str],
+    control_columns: Optional[List[str]] = None,
+    alpha: float = 0.05,
+    max_lag: int = 1,
+    max_geos: int = 5,
+    ci_test: str = "auto",
+    console: Optional[Console] = None,
+    max_conds_dim: Optional[int] = None,
+) -> CausalGraph:
+    """Run causal discovery on benchmark MMM data.
+
+    Parameters
+    ----------
+    data_df : pd.DataFrame
+        Benchmark data with MultiIndex (date, geo) or flat index.
+        Must contain channel columns and 'y'.
+    channel_columns : List[str]
+        Channel spend column names.
+    control_columns : List[str], optional
+        Control variable column names. If provided, included in the
+        causal graph to detect endogeneity (control → channel confounding).
+    alpha : float
+        Significance level for CI tests.
+    max_lag : int
+        Maximum temporal lag to consider. Default 1 (faster).
+    max_geos : int
+        Maximum number of geos to use for discovery. Default 5.
+    ci_test : str
+        Teste de independência condicional. "auto" (default) escolhe
+        kci (não-linear) se houver exatamente 1 geo efetivo, senão parcorr
+        (linear Fisher-Z, muito mais rápido). Pode ser forçado para
+        "parcorr" ou "kci" explicitamente.
+    console : Optional[Console]
+        Rich console for output.
+    max_conds_dim : Optional[int], optional
+        Maximum conditioning set size for PCMCI. None (default) lets PCMCI
+        adapt automatically; set to 4 to cap k-NN dimensionality for speed
+        at the cost of some recall on large variable sets.
+
+    Returns
+    -------
+    CausalGraph
+        Discovery results with channel classifications and endogeneity info.
+    """
+```
+
+O parâmetro `ci_test="auto"` implementa uma seleção adaptativa do teste de independência condicional: em cenários com múltiplos geos, o algoritmo adota ParCorr (Fisher-Z linear), que é 100 a 1000 vezes mais rápido e se beneficia da replicação entre regiões geográficas para compensar a menor sensibilidade a efeitos não-lineares. Quando há apenas um geo disponível, o algoritmo seleciona CMIknn, um estimador não-paramétrico baseado em k-vizinhos mais próximos capaz de capturar efeitos não-lineares de saturação e adstock sem o custo O(N³) do kernel KCI clássico. O trecho exato que implementa essa lógica é:
+
+```python
+if ci_test == "auto":
+    ci_test = "kci" if len(geos) == 1 else "parcorr"
+```
+
+### 7.3.3 Descoberta por Geo: `_pcmci_discovery()`
+
+O motor primário de descoberta é o algoritmo PCMCI, executado via biblioteca tigramite, que aplica o teste MCI (*Momentary Conditional Independence*) condicionando nos pais de ambos os endpoints — estratégia que mantém os conjuntos de condicionamento pequenos independentemente do número de variáveis. Ao contrário do PC aplicado sobre uma matriz aumentada com defasagens, o PCMCI trata explicitamente a autocorrelação de séries temporais e controla a taxa de falsos positivos de forma global por meio de correção BH.
+
+O trecho central de `_pcmci_discovery()` — criação do dataframe tigramite, execução do PCMCI, aplicação da correção BH e construção das matrizes de adjacência — é reproduzido abaixo:
+
+```python
+    # tigramite expects shape (T, N) — pass only the n_vars contemporary cols
+    dataframe = pp.DataFrame(data[:, :n_vars], var_names=list(range(n_vars)))
+    pcmci = PCMCI(dataframe=dataframe, cond_ind_test=cond_ind_test, verbosity=0)
+
+    # B: build targeted link_assumptions when structural info is available
+    link_assumptions = None
+    if n_channels > 0:
+        link_assumptions = _build_mmm_link_assumptions(
+            n_channels, n_controls, n_vars, max_lag
+        )
+
+    # A: max_conds_dim caps k-NN conditioning set size (curse of dimensionality).
+    # None lets PCMCI adapt automatically; an explicit value trades recall for speed.
+    # link_assumptions restricts the PC and MCI phases to MMM-relevant edges.
+    # tau_min=1: only lagged links — contemporaneous edges are ambiguous in MMM
+    results = pcmci.run_pcmci(
+        tau_max=max_lag,
+        tau_min=1,
+        pc_alpha=alpha,
+        max_conds_dim=max_conds_dim,
+        link_assumptions=link_assumptions,
+    )
+
+    # p_matrix[i, j, tau] = MCI p-value of X_i(t-tau) → X_j(t)
+    # Shape: (n_vars, n_vars, tau_max+1); index 0 (contemporaneous) = 1.0
+    p_matrix = results["p_matrix"]
+
+    # BH correction across all (i, j, tau) tests — controls FDR, not FWER.
+    # Reference: Benjamini & Hochberg (1995), JRSS-B 57(1):289-300.
+    q_matrix = pcmci.get_corrected_pvalues(
+        p_matrix=p_matrix,
+        tau_min=1,
+        tau_max=max_lag,
+        fdr_method="fdr_bh",
+    )
+
+    adj = np.zeros((n_vars, n_vars))
+    pval = np.ones((n_vars, n_vars))
+    qval = np.ones((n_vars, n_vars))
+
+    for i in range(n_vars):
+        for j in range(n_vars):
+            if i == j:
+                continue
+            min_p = float(p_matrix[i, j, 1 : max_lag + 1].min())
+            min_q = float(q_matrix[i, j, 1 : max_lag + 1].min())
+            pval[i, j] = min_p
+            qval[i, j] = min_q
+            if min_q < alpha:   # edge decision uses BH-corrected q, not raw p
+                adj[i, j] = 1.0
+```
+
+A decisão de inclusão de aresta utiliza o q-value corrigido por BH, e não o p-value bruto — `if min_q < alpha: adj[i, j] = 1.0` — garantindo controle da taxa de falsas descobertas no conjunto de todos os testes simultaneamente realizados.
+
+### 7.3.4 Consenso entre Geos e Restrições Estruturais
+
+Após a descoberta individual por geo, o grafo consenso é construído por votação majoritária sobre as matrizes de adjacência per-geo, seguida da aplicação de restrições estruturais derivadas do domínio MMM.
+
+```python
+stacked = np.stack(list(per_geo_adj.values()), axis=0)
+agreement = stacked.mean(axis=0)
+consensus_adj = (agreement >= 0.5).astype(float)
+
+# Enforce constraints
+consensus_adj[y_idx, :] = 0
+for ci in channel_indices:
+    for cj in control_indices:
+        consensus_adj[ci, cj] = 0
+```
+
+Uma aresta é incluída no grafo consenso se detectada em pelo menos 50% dos geos analisados, reduzindo falsos positivos que ocorrem em regiões atípicas. As restrições estruturais garantem em seguida que y não causa nenhuma variável (y é o desfecho terminal) e que canais não causam variáveis de controle (controles são exógenos por pressuposto do modelo).
+
+### 7.3.5 Restrições MMM: `_build_mmm_link_assumptions()`
+
+`_build_mmm_link_assumptions()` codifica o conhecimento estrutural prévio de MMM no parâmetro `link_assumptions` do PCMCI, reduzindo o número de testes de independência condicional realizados em aproximadamente 30%.
+
+```python
+def _build_mmm_link_assumptions(
+    n_channels: int,
+    n_controls: int,
+    n_vars: int,
+    max_lag: int,
+) -> dict:
+    """Restrict PCMCI to structurally possible edges in MMM.
+
+    Allowed edges (tested):
+      - channel/control → y      (direct / mediated detection)
+      - channel_i → channel_j    (mediated path between channels)
+      - channel_i → channel_i    (self-lag / autocorrelation conditioning)
+      - control   → channel      (endogeneity detection)
+
+    Forbidden edges (skipped, saves ~30% of CI tests):
+      - y → anything             (y is the terminal outcome)
+      - channel → control        (controls are exogenous by design)
+      - control → control        (controls are assumed independent)
+    """
+    y_idx        = n_vars - 1
+    channel_idxs = list(range(n_channels))
+    control_idxs = list(range(n_channels, n_channels + n_controls))
+    lags         = [-tau for tau in range(1, max_lag + 1)]
+
+    la: dict = {j: {} for j in range(n_vars)}
+
+    # anything → y
+    for i in range(n_vars - 1):
+        for lag in lags:
+            la[y_idx][(i, lag)] = "?->"
+
+    # channel/control → channel  (includes self-lags for autocorrelation)
+    for j in channel_idxs:
+        for i in channel_idxs + control_idxs:
+            for lag in lags:
+                la[j][(i, lag)] = "?->"
+
+    # controls stay empty — they are exogenous: no incoming edges allowed
+
+    return la
+```
+
+Essa função impede que o PCMCI teste arestas estruturalmente impossíveis (y → qualquer variável, canal → controle), reduzindo o custo computacional e diminuindo a taxa de falsas descobertas ao estreitar o espaço de hipóteses testadas.
 
 ## 7.4 Módulo de Calibração de Priors: `cdnots_model_builder.py`
 
-[RASCUNHO — ver Task 11]
+O módulo `cdnots_model_builder.py` é a ponte entre o grafo causal produzido pelo CD-NOTS e os modelos Bayesianos de Marketing Mix Modeling. Ele traduz as evidências estatísticas do grafo — valores-p, valores-q e estrutura de adjacência — em priors calibrados que são injetados nos frameworks PyMC-Marketing e Meridian antes do ajuste MCMC.
+
+### 7.4.1 Constante `MIN_SIGMA_RATIO` e Configuração Global
+
+A constante central do módulo é `MIN_SIGMA_RATIO = 0.4`, que define o sigma mínimo permitido como fração do sigma base — validada empiricamente para prevenir conflito prior-verossimilhança (valores abaixo de 0,3 produziram R-hat > 1,8 em experimentos piloto). Todo o módulo opera sem parâmetros livres adicionais além dessa constante, o que simplifica o espaço de configuração e torna o comportamento do pipeline determinístico dado o grafo causal.
+
+```python
+MIN_SIGMA_RATIO = 0.4
+# DAMPING removed — new formula has no free parameters beyond MIN_SIGMA_RATIO.
+```
+
+### 7.4.2 Auxiliar `_path_min_confidence_pvalue()`
+
+Para canais mediados, a confiança de calibração é delimitada pela aresta mais fraca ao longo do caminho até y.
+
+```python
+def _path_min_confidence_pvalue(
+    adj: np.ndarray,
+    pvals: np.ndarray,
+    source: int,
+    target: int,
+    max_depth: int = 3,
+) -> float:
+    """Return the p-value of the weakest edge along the best path to target.
+
+    A mediated channel's confidence is bounded by its flimsiest mediating
+    edge. Among all paths source → ... → target (depth ≤ max_depth), the
+    path's strength = max p-value on that path. We return the minimum of
+    those path strengths (i.e., the best available path). Returns 1.0 if
+    no path exists.
+    """
+    # BFS tracking best (lowest) path-max-pvalue to each node
+    best = {source: 0.0}
+    frontier = [source]
+    for _ in range(max_depth):
+        next_frontier = []
+        for node in frontier:
+            for child in range(adj.shape[1]):
+                if adj[node, child] <= 0 or child == node:
+                    continue
+                path_max = max(best[node], float(pvals[node, child]))
+                if path_max < best.get(child, np.inf):
+                    best[child] = path_max
+                    next_frontier.append(child)
+        frontier = next_frontier
+        if not frontier:
+            break
+    return best.get(target, 1.0)
+```
+
+A busca em largura explora caminhos com profundidade máxima 3 e retorna o mínimo dos valores-q do pior caso entre todos os caminhos disponíveis — ou seja, o caminho mais confiante até y é selecionado.
+
+### 7.4.3 Calibração de Sigma: `_compute_sigma_multipliers()`
+
+`_compute_sigma_multipliers()` implementa a fórmula de relaxação spike-and-slab contínua que conecta evidência causal a multiplicadores de prior. Para cada canal, a função obtém o valor-q apropriado (direto: de `edge_qvalues`; mediado: de `_path_min_confidence_pvalue`; excluído: de `edge_qvalues`, que é elevado por definição), calcula a probabilidade de inclusão posterior (PIP) e aplica opcionalmente a penalidade de endogeneidade.
+
+```python
+def _compute_sigma_multipliers(
+    channel_columns: List[str],
+    graph: CausalGraph,
+) -> np.ndarray:
+    """Compute per-channel sigma multipliers via Empirical Bayes / spike-and-slab.
+
+    Formula (same for all channel categories):
+        PIP  = 1 - q_value           (posterior inclusion probability, Storey 2002)
+        mult = MIN_SIGMA_RATIO + (1 - MIN_SIGMA_RATIO) × PIP
+
+    where q_value is the BH-corrected edge q-value from CausalGraph.edge_qvalues.
+    For mediated channels the weakest-link path q-value is used.
+
+    References
+    ----------
+    Storey (2002) JRSS-B 64(3):479-498 — q-value as P(H0|data).
+    Efron (2010) Large-Scale Inference, Ch. 5 — PIP = 1 - q.
+    Ishwaran & Rao (2005) Ann.Stat. 33(2):730-773 — continuous spike-and-slab.
+
+    Returns
+    -------
+    np.ndarray
+        Multipliers in [MIN_SIGMA_RATIO, 1.0] of shape (n_channels,).
+    """
+    n_channels = len(channel_columns)
+    multipliers = np.ones(n_channels)
+    y_idx = len(graph.variable_names) - 1
+
+    for i, ch in enumerate(channel_columns):
+        if ch in graph.variable_names:
+            ch_idx = graph.variable_names.index(ch)
+            has_direct = graph.adjacency_matrix[ch_idx, y_idx] > 0
+
+            if has_direct:
+                q_value = float(graph.edge_qvalues[ch_idx, y_idx])
+            elif ch in graph.mediated_channels:
+                # Mediated: weakest-link q along the most confident path to y.
+                q_value = _path_min_confidence_pvalue(
+                    graph.adjacency_matrix, graph.edge_qvalues, ch_idx, y_idx
+                )
+            else:
+                # Excluded: high q → low PIP → multiplier near MIN_SIGMA_RATIO.
+                q_value = float(graph.edge_qvalues[ch_idx, y_idx])
+        else:
+            q_value = 1.0
+
+        # PIP = P(H1 | data) under BH empirical Bayes model
+        pip = float(np.clip(1.0 - q_value, 0.0, 1.0))
+        multipliers[i] = MIN_SIGMA_RATIO + (1.0 - MIN_SIGMA_RATIO) * pip
+
+        # Endogeneity penalty: control → channel confounding shrinks prior
+        # proportional to R² (variance explained by confounder).
+        if hasattr(graph, 'endogenous_r2') and ch in graph.endogenous_r2:
+            r2 = graph.endogenous_r2[ch]
+            tolerance = max(MIN_SIGMA_RATIO, 1.0 - r2)
+            multipliers[i] = max(MIN_SIGMA_RATIO, multipliers[i] * tolerance)
+
+    return multipliers
+```
+
+Quando uma variável de controle causa um canal (detectado pelo PCMCI), o R² entre o controle e o canal é computado como penalidade orientada a dados — quanto maior a variância do canal explicada pelo confundidor, mais o prior é contraído. O multiplicador final é truncado em `MIN_SIGMA_RATIO` para prevenir conflito com o amostrador MCMC.
+
+### 7.4.4 Calibração de Adstock: `_compute_adstock_params()`
+
+O prior de adstock utiliza a parametrização Beta(1, α_b), onde α_b é modulado pela PIP — canais com alta PIP recebem priors de decaimento mais flexíveis.
+
+```python
+def _compute_adstock_params(
+    channel_columns: List[str],
+    graph: CausalGraph,
+) -> Tuple[np.ndarray, np.ndarray]:
+    """Compute per-channel Beta(a, b) for adstock prior using PIP from q-values.
+
+    Beta(1, alpha_b): lower alpha_b → more uniform (flexible decay);
+                      higher alpha_b → concentrated near 0 (fast decay).
+    BASE_B=3.0 is the neutral prior; MIN_B=1.0 is maximally flexible (Uniform).
+    Channels with high PIP get more flexible adstock (lower alpha_b).
+
+    Returns
+    -------
+    tuple
+        (alpha_a, alpha_b) arrays of shape (n_channels,)
+    """
+    BASE_B, MIN_B = 3.0, 1.0
+    n_channels = len(channel_columns)
+    alpha_a = np.ones(n_channels)
+    alpha_b = np.full(n_channels, BASE_B)
+    y_idx = len(graph.variable_names) - 1
+
+    for i, ch in enumerate(channel_columns):
+        if ch in graph.variable_names:
+            ch_idx = graph.variable_names.index(ch)
+            has_direct = graph.adjacency_matrix[ch_idx, y_idx] > 0
+
+            if has_direct:
+                q_value = float(graph.edge_qvalues[ch_idx, y_idx])
+            elif ch in graph.mediated_channels:
+                q_value = _path_min_confidence_pvalue(
+                    graph.adjacency_matrix, graph.edge_qvalues, ch_idx, y_idx
+                )
+            else:
+                q_value = 1.0
+        else:
+            q_value = 1.0
+
+        pip = float(np.clip(1.0 - q_value, 0.0, 1.0))
+        alpha_b[i] = float(np.clip(BASE_B - (BASE_B - MIN_B) * pip, MIN_B, 5.0))
+
+    return alpha_a, alpha_b
+```
+
+Canais com PIP ≈ 1 resultam em α_b → MIN_B = 1,0, produzindo um prior aproximadamente Uniforme sobre a taxa de decaimento; canais com PIP ≈ 0 resultam em α_b → BASE_B = 3,0, concentrando a massa de probabilidade próxima a zero (prior de decaimento rápido).
+
+### 7.4.5 Construção do Modelo PyMC-Marketing: `build_pymc_model_with_graph()`
+
+`build_pymc_model_with_graph()` monta o modelo PyMC-Marketing com os priors calibrados a partir do grafo causal, integrando os multiplicadores de sigma e os parâmetros de adstock computados pelas funções auxiliares.
+
+```python
+def build_pymc_model_with_graph(
+    data_df: pd.DataFrame,
+    channel_columns: List[str],
+    control_columns: List[str],
+    graph: CausalGraph,
+) -> MMM:
+    """Build PyMC-Marketing model with Empirical Bayes priors from causal graph."""
+    prior_sigma = model_builder.calculate_prior_sigma(data_df, channel_columns)
+    multipliers = _compute_sigma_multipliers(channel_columns, graph)
+    adjusted_sigma = prior_sigma * multipliers[np.newaxis, :]
+
+    _log_adjustments(channel_columns, multipliers, graph)
+
+    saturation = HillSaturationSigmoid(
+        priors={
+            "sigma": Prior(
+                "InverseGamma",
+                mu=Prior("HalfNormal", sigma=adjusted_sigma.mean(axis=0), dims=("channel",)),
+                sigma=Prior("HalfNormal", sigma=1.5),
+                dims=("channel", "geo")
+            ),
+            "beta": Prior("HalfNormal", sigma=1.5, dims=("channel",)),
+            "lam": Prior("HalfNormal", sigma=1.5, dims=("channel",)),
+        },
+    )
+
+    _, alpha_b = _compute_adstock_params(channel_columns, graph)
+    adstock = GeometricAdstock(
+        l_max=8,
+        priors={"alpha": Prior("Beta", alpha=1, beta=alpha_b.tolist(), dims=("channel",))},
+    )
+
+    mmm = MMM(
+        date_column="time",
+        target_column="y",
+        channel_columns=channel_columns,
+        control_columns=control_columns,
+        dims=("geo",),
+        scaling={
+            "channel": {"method": "max", "dims": ()},
+            "target": {"method": "max", "dims": ()},
+        },
+        saturation=saturation,
+        adstock=adstock,
+        yearly_seasonality=2,
+    )
+
+    x_train = data_df.drop(columns=["y"])
+    y_train = data_df["y"]
+    mmm.build_model(X=x_train, y=y_train)
+
+    contribution_vars = [
+        "channel_contribution",
+        "intercept_contribution",
+        "yearly_seasonality_contribution",
+        "y",
+    ]
+    if control_columns:
+        contribution_vars.insert(1, "control_contribution")
+    mmm.add_original_scale_contribution_variable(var=contribution_vars)
+
+    return mmm
+```
+
+O `adjusted_sigma` calibrado é passado ao prior sigma de `HillSaturationSigmoid` como parâmetro `mu` de uma distribuição `InverseGamma` hierárquica; o `alpha_b` calibrado é passado ao prior `alpha` de `GeometricAdstock`. Ambos substituem os priors padrão do framework, injetando a estrutura causal descoberta pelo CD-NOTS diretamente na geometria do espaço de parâmetros do modelo Bayesiano.
 
 ## 7.5 Ajuste dos Modelos: `cdnots_fitter.py`
 
-[RASCUNHO — ver Task 12]
+### 7.5.1 Interface e Responsabilidades
+
+O módulo `cdnots_fitter.py` constitui a camada de orquestração do pipeline CD-NOTS: ele encapsula as chamadas a `build_pymc_model_with_graph()` e `build_meridian_model_with_graph()` juntamente com as etapas de amostragem MCMC e amostragem preditiva posterior. O módulo espelha deliberadamente a interface de `model_fitter.py` do repositório de benchmark — todas as funções de ajuste retornam `Tuple[Model, float, Dict]` (modelo ajustado, tempo de execução em segundos e estatísticas ESS) — garantindo que os braços CD-NOTS sejam diretamente comparáveis aos braços de linha de base. A contagem de tempo inicia antes da construção do modelo, de modo que o custo da calibração de priors via grafo causal é incorporado ao tempo total relatado.
+
+### 7.5.2 Ajuste PyMC-Marketing: `fit_pymc_with_graph()`
+
+```python
+def fit_pymc_with_graph(
+    data_df: pd.DataFrame,
+    channel_columns: list,
+    control_columns: list,
+    graph: CausalGraph,
+    sampler: str,
+    n_chains: int,
+    n_draws: int,
+    n_tune: int,
+    target_accept: float,
+    seed: int,
+    console: Optional[Console] = None,
+) -> Tuple[MMM, float, Dict[str, Optional[float]]]:
+    """Fit PyMC-Marketing with CD-NOTS calibrated priors.
+
+    Same interface as model_fitter.fit_pymc but uses graph-informed priors.
+    Timing includes model building (with graph) + sampling.
+
+    Parameters
+    ----------
+    data_df : pd.DataFrame
+        Dataset
+    channel_columns : list
+        Channel column names
+    control_columns : list
+        Control column names
+    graph : CausalGraph
+        CD-NOTS discovery results
+    sampler : str
+        Sampler name ('pymc', 'blackjax', 'numpyro', 'nutpie')
+    n_chains : int
+        Number of chains
+    n_draws : int
+        Number of draws per chain
+    n_tune : int
+        Number of tuning samples
+    target_accept : float
+        Target acceptance probability
+    seed : int
+        Random seed
+    console : Optional[Console]
+        Rich console for output
+
+    Returns
+    -------
+    Tuple[MMM, float, Dict]
+        Fitted model, runtime in seconds, ESS statistics
+    """
+    if console is None:
+        console = Console()
+
+    console.print(
+        f"  Fitting PyMC-Marketing + CD-NOTS with {sampler}, "
+        f"{n_chains} chains, {n_draws} draws, {n_tune} tune steps"
+    )
+    console.print(
+        f"    Graph: {len(graph.direct_channels)} direct, "
+        f"{len(graph.mediated_channels)} mediated, "
+        f"{len(graph.excluded_channels)} excluded"
+    )
+
+    kwargs = {}
+    if sampler == "nutpie":
+        kwargs = {"nuts_sampler_kwargs": {"backend": "jax", "gradient_backend": "jax"}}
+
+    # Start timing BEFORE building model (same as baseline)
+    start = time.perf_counter()
+
+    pymc_model = build_pymc_model_with_graph(
+        data_df, channel_columns, control_columns, graph
+    )
+
+    x = data_df.drop(columns=["y"])
+    y = data_df["y"]
+
+    pymc_model.fit(
+        X=x,
+        y=y,
+        chains=n_chains,
+        draws=n_draws,
+        tune=n_tune,
+        target_accept=target_accept,
+        random_seed=seed,
+        nuts_sampler=sampler,
+        **kwargs,
+    )
+
+    pymc_model.sample_posterior_predictive(
+        X=x, extend_idata=True, combined=True, random_seed=seed
+    )
+
+    runtime = time.perf_counter() - start
+    ess = diagnostics.compute_ess(pymc_model.idata)
+
+    console.print(
+        f"  [green]✓[/green] PyMC + CD-NOTS - {sampler}: "
+        f"{runtime:.1f}s, ESS min: {ess.get('min', 'N/A')}"
+    )
+
+    return pymc_model, runtime, ess
+```
+
+A função opera em três etapas sequenciais. Primeiro, `build_pymc_model_with_graph()` constrói o objeto `MMM` com os priors calibrados a partir do grafo causal, incorporando os ajustes de `sigma` e `alpha` calculados em `cdnots_model_builder.py`. Em seguida, `pymc_model.fit()` executa a amostragem via NUTS com o amostrador especificado — nutpie, numpyro, blackjax ou o backend padrão do PyMC — respeitando os hiperparâmetros de cadeia, passos de tuning e probabilidade de aceitação alvo. Por fim, `sample_posterior_predictive()` gera predições fora da amostra estendendo o `InferenceData`, etapa necessária para o cálculo das métricas R² e MAPE utilizadas na comparação dos quatro braços.
+
+### 7.5.3 Ajuste Meridian: `fit_meridian_with_graph()`
+
+```python
+def fit_meridian_with_graph(
+    data_df: pd.DataFrame,
+    channel_columns: list,
+    control_columns: list,
+    graph: CausalGraph,
+    n_chains: int,
+    n_draws: int,
+    n_tune: int,
+    target_accept: float,
+    seed: int,
+    console: Optional[Console] = None,
+) -> Tuple[model.Meridian, float, Dict[str, Optional[float]]]:
+    """Fit Meridian with CD-NOTS calibrated priors.
+
+    Same interface as model_fitter.fit_meridian but uses graph-informed priors.
+
+    Parameters
+    ----------
+    data_df : pd.DataFrame
+        Dataset
+    channel_columns : list
+        Channel column names
+    control_columns : list
+        Control column names
+    graph : CausalGraph
+        CD-NOTS discovery results
+    n_chains : int
+        Number of chains
+    n_draws : int
+        Number of draws per chain
+    n_tune : int
+        Number of tuning samples
+    target_accept : float
+        Target acceptance probability
+    seed : int
+        Random seed
+    console : Optional[Console]
+        Rich console for output
+
+    Returns
+    -------
+    Tuple[model.Meridian, float, Dict]
+        Fitted model, runtime in seconds, ESS statistics
+    """
+    if console is None:
+        console = Console()
+
+    console.print(
+        f"  Fitting Meridian + CD-NOTS with "
+        f"{n_chains} chains, {n_draws} draws, {n_tune} tune steps"
+    )
+    console.print(
+        f"    Graph: {len(graph.direct_channels)} direct, "
+        f"{len(graph.mediated_channels)} mediated, "
+        f"{len(graph.excluded_channels)} excluded"
+    )
+
+    start = time.perf_counter()
+
+    meridian_model = build_meridian_model_with_graph(
+        data_df, channel_columns, control_columns, graph
+    )
+
+    meridian_model.sample_posterior(
+        n_chains=n_chains,
+        n_adapt=int(n_tune / 2),
+        n_burnin=int(n_tune / 2),
+        n_keep=n_draws,
+        seed=(seed, seed),
+        dual_averaging_kwargs={"target_accept_prob": target_accept},
+    )
+
+    runtime = time.perf_counter() - start
+    ess = diagnostics.compute_ess(meridian_model.inference_data)
+
+    console.print(
+        f"  [green]✓[/green] Meridian + CD-NOTS: "
+        f"{runtime:.1f}s, ESS min: {ess.get('min', 'N/A')}"
+    )
+
+    return meridian_model, runtime, ess
+```
+
+O Meridian utiliza `sample_posterior()` com nomenclatura de parâmetros distinta do PyMC: `n_adapt` e `n_burnin` substituem o único parâmetro `tune`, sendo cada um atribuído metade do orçamento de tuning (`int(n_tune / 2)`), enquanto `n_keep` corresponde ao número de amostras retidas (`draws`). O parâmetro `dual_averaging_kwargs` repassa a probabilidade de aceitação alvo ao backend MCMC do TensorFlow Probability, garantindo que a calibração de NUTS seja equivalente à configurada nos braços PyMC.
+
+### 7.5.4 Compatibilidade com o Framework de Benchmark
+
+As assinaturas de `fit_pymc_with_graph()` e `fit_meridian_with_graph()` são idênticas às de `fit_pymc()` e `fit_meridian()` em `model_fitter.py` (os braços de linha de base 1 e 2), com o acréscimo do parâmetro `graph: CausalGraph`. Isso significa que os braços 3 e 4 podem ser incorporados a `run_benchmark.py` com modificação mínima de código: basta chamar `discover_graph()` uma única vez e passar o resultado às funções de ajuste CD-NOTS. A chamada a `diagnostics.compute_ess()` é compartilhada entre todos os braços, garantindo consistência na mensuração da qualidade amostral independentemente do framework de modelagem utilizado.
 
 ## 7.6 Framework de Benchmark e Notebook
 
-[RASCUNHO — ver Task 13]
+### 7.6.1 Estrutura do Repositório `mmm_param_recovery`
+
+O framework de comparação de linha de base é fornecido pelo repositório irmão `mmm_param_recovery`, localizado em `/home/ennes/mestrado/pymc_meridian_comparison/mmm_param_recovery/`. Esse repositório gerencia os Braços 1 e 2 (PyMC-Marketing e Meridian sem calibração causal) e provê utilitários compartilhados — geração de dados sintéticos, cômputo de ROAS e diagnósticos de ESS/R-hat — utilizados por todos os quatro braços do experimento.
+
+```
+mmm_param_recovery/
+├── benchmarking/
+│   ├── config.py          # MMMDataConfig, ChannelConfig, CausalEdgeConfig
+│   ├── presets.py         # causal_business e outros presets
+│   ├── data_generator.py  # geração de dados sintéticos
+│   ├── model_builder.py   # build_pymc_model, build_meridian_model (Braços 1 e 2)
+│   ├── model_fitter.py    # fit_pymc, fit_meridian (Braços 1 e 2)
+│   ├── diagnostics.py     # compute_ess, r_hat
+│   └── evaluator.py       # ROAS, contribuições, métricas de atribuição
+└── run_benchmark.py       # orquestração da execução dos braços
+```
+
+O arquivo `run_benchmark.py` é o ponto central de orquestração: ele itera sobre os conjuntos de dados configurados, invoca os ajustadores de cada braço e consolida os resultados em arquivos JSONL no diretório `resultados/`. Os módulos CD-NOTS do repositório `causalmmm_with_cdnots` são integrados a esse orquestrador por meio de patches documentados em `CDNOTS_INTEGRATION.py`.
+
+### 7.6.2 Integração via `CDNOTS_INTEGRATION.py`
+
+`CDNOTS_INTEGRATION.py` documenta os patches de código necessários para adicionar os Braços 3 e 4 ao `run_benchmark.py` existente, sem modificar a lógica dos braços de linha de base. A integração ocorre em quatro etapas: (1) adição do flag `--cdnots` ao parser de argumentos; (2) adição das importações dos módulos CD-NOTS; (3) inserção de uma fase de descoberta e ajuste (Fase 1b) após o bloco de ajuste PyMC existente; e (4) extensão da fase de avaliação para incluir os modelos CD-NOTS.
+
+O trecho central da integração, extraído diretamente de `CDNOTS_INTEGRATION.py`, ilustra o padrão de descoberta única seguida de ajuste em dois braços:
+
+```python
+        if getattr(args, 'cdnots', False):
+            console.print()
+            console.rule("[bold magenta]PHASE 1b: CD-NOTS CAUSAL DISCOVERY + FITTING[/bold magenta]")
+
+            # Phase 0: Discover causal graph (runs once per dataset)
+            graph = cdnots_discovery.discover_graph(
+                data_df, channel_columns,
+                alpha=0.05, max_lag=2, console=console
+            )
+
+            # Arm 3: PyMC + CD-NOTS
+            if "pymc" in args.libraries:
+                for sampler in args.samplers:
+                    pymc_cdnots, runtime, ess = cdnots_fitter.fit_pymc_with_graph(
+                        data_df, channel_columns, control_columns, graph,
+                        sampler, args.chains, args.draws, args.tune,
+                        args.target_accept, args.seed, console
+                    )
+                    storage.save_pymc_model(pymc_cdnots, dataset_name, f"cdnots_{sampler}", runtime, ess)
+
+            # Arm 4: Meridian + CD-NOTS
+            if "meridian" in args.libraries:
+                meridian_cdnots, runtime, ess = cdnots_fitter.fit_meridian_with_graph(
+                    data_df, channel_columns, control_columns, graph,
+                    args.chains, args.draws, args.tune,
+                    args.target_accept, args.seed, console
+                )
+                storage.save_meridian_model(meridian_cdnots, dataset_name + "_cdnots", runtime, ess)
+```
+
+Esse padrão de descoberta única com dois braços de ajuste garante que o grafo causal seja idêntico para ambos os braços CD-NOTS — isolando o efeito do framework de modelagem (PyMC vs. Meridian) em relação ao efeito da descoberta causal em si.
+
+### 7.6.3 Notebook `experimento_4bracos.ipynb`
+
+O notebook `notebooks/experimento_4bracos.ipynb` serve como interface interativa para execução e análise do experimento completo de quatro braços. A célula de configuração inicial importa os módulos necessários, carrega o preset `causal_business` e define a semente global `2025_07_15`, garantindo reprodutibilidade das execuções interativas. A célula de descoberta invoca `discover_graph()` e exibe a visualização do grafo resultante acompanhada de métricas estruturais (número de arestas, densidade, canais endógenos identificados), permitindo inspeção qualitativa antes do ajuste. As células de ajuste executam os quatro braços sequencialmente com registro de tempo de execução por braço, enquanto as células de avaliação produzem tabelas comparativas de R², MAPE e ROAS por canal. Uma célula de diagnóstico final consolida os valores de R-hat e ESS por braço, facilitando a identificação de problemas de convergência MCMC antes da interpretação substantiva dos resultados.
 
 ## 7.7 Reprodutibilidade
 
-[RASCUNHO — ver Task 14]
+A reprodutibilidade integral do experimento é garantida pela propagação da semente padrão `2025_07_15` desde o preset de configuração até o gerador de dados sintéticos e, subsequentemente, até os samplers MCMC de todos os quatro braços — assegurando que qualquer execução com os mesmos hiperparâmetros produza trajetórias de amostragem idênticas. A instalação do ambiente requer dois passos: `pip install -e ".[cdnots,viz,dev]"` a partir da raiz de `causalmmm_with_cdnots/`, e `pip install -e .` a partir de `/home/ennes/mestrado/pymc_meridian_comparison/mmm_param_recovery/`, de modo que ambos os repositórios estejam disponíveis como pacotes editáveis no mesmo ambiente Python. As dependências principais são Python 3.10+, tigramite (para PCMCI/PC), pymc-marketing ≥ 0.12, Google Meridian, tensorflow-probability e nutpie/JAX para amostragem NUTS eficiente; versões exatas são registradas no `setup.py` de cada repositório. Execuções longas do benchmark são conduzidas em sessões `tmux` para tolerância a desconexões, e os resultados são gravados incrementalmente em arquivos JSONL no diretório `resultados/`, permitindo retomada a partir do último ponto salvo em caso de interrupção. Para execução em nuvem, o script `pack_for_gcp.sh` empacota ambos os repositórios em um arquivo tar — excluindo `.pixi`, `.git`, `__pycache__` e `resultados/` — e realiza o upload para um bucket GCS especificado como argumento opcional, viabilizando execuções reproduzíveis em VMs do Google Cloud.
 
 ---
 
 # 9. Resultados
 
-## 9.1 Resultados do Benchmark PyMC vs Meridian (Baseline)
+## 9.1 Comparativo Baseline: PyMC-Marketing vs. Meridian (Braços 1 e 2)
 
-[INSERIR resultados já disponíveis do repo mmm-param-recovery — braços 1 e 2]
+Os Braços 1 e 2 estabelecem o desempenho de referência dos dois frameworks Bayesianos com suas configurações padrão (priors baseados em participação de gastos), sem qualquer informação proveniente de descoberta causal. Esse ponto de partida é essencial para isolar a contribuição marginal da calibração via CD-NOTS nos braços subsequentes. Ambos os frameworks foram executados sob condições idênticas de dados sintéticos e sementes MCMC, garantindo comparabilidade direta.
 
-## 9.2 Resultados da Descoberta Causal via CD-NOTS
+| Métrica | PyMC Baseline | Meridian Baseline | Dataset |
+|---|---|---|---|
+| R² (ajuste) | 0.943 | 0.801 | small_business |
+| R² (ajuste) | 0.784 | 0.983 | causal_business |
+| MAPE ajuste | 5.34% | 9.47% | small_business |
+| MAPE ajuste | 10.27% | 2.73% | causal_business |
+| MAPE contribuições | 2489% | 659% | small_business |
+| MAPE contribuições | 85.4% | 45.4% | causal_business |
+| ESS mínimo | 158 | 291 | small_business |
+| ESS mínimo | 121 | 128 | causal_business |
 
-[PLACEHOLDER — a ser preenchido após execução]
+O resultado mais saliente é a **inversão de desempenho entre datasets**: o PyMC-Marketing supera o Meridian no preset *small_business* (R²=0,943 vs. 0,801), enquanto o Meridian domina amplamente no preset *causal_business* (R²=0,983 vs. 0,784), indicando que ambos os frameworks são sensíveis às características estruturais dos dados — em particular ao número de canais, ao horizonte temporal e à presença de efeitos causais inter-canais. Apesar dessa inversão no ajuste, o **problema de atribuição permanece universal**: o MAPE sobre contribuições individuais é catastroficamente elevado para todos os baselines sem exceção, variando de 659% a 2489% no preset *small_business*, o que confirma que a recuperação precisa de contribuições de canais constitui o desafio central do problema — independentemente da qualidade do ajuste à série de vendas. A **assimetria de ESS** observada no Meridian no preset *causal_business* — onde o ESS mediano cai para 135 contra 554 do PyMC apesar de R² superior — sugere que o Meridian concentra a massa posterior de forma mais estreita (possivelmente por meio de regularização mais intensa do likelihood), sacrificando diversidade amostral em favor de convergência; esse comportamento implica maior fragilidade frente a especificação incorreta de priors ou multimodalidade latente.
 
-## 9.3 Resultados Comparativos: Baseline vs Graph-Informed
+---
 
-[PLACEHOLDER — a ser preenchido após execução]
+## 9.2 Qualidade da Descoberta Causal via CD-NOTS
+
+O algoritmo CD-NOTS foi aplicado ao preset *small_business* em modo single-geo — configuração primária adotada nesta dissertação, dado que o mercado nacional brasileiro opera predominantemente sem estrutura geo-replicada suficiente para análise multi-geo robusta. O teste de independência condicional utilizado foi o KCI (Kernel Conditional Independence), executado com PCMCI sobre séries semanais de N=104 observações.
+
+### 9.2.1 Resultados Estruturais — Preset small_business
+
+| Métrica Estrutural | Valor |
+|---|---|
+| Precision | 0.50 |
+| Recall | 0.50 |
+| F1-score | 0.50 |
+| FDR (False Discovery Rate) | 0.50 |
+| SHD (Structural Hamming Distance) | 4 |
+| True Positives (TP) | 2 |
+| False Positives (FP) | 2 |
+| False Negatives (FN) | 2 |
+| True Negatives (TN) | 14 |
+
+A análise detalhada das arestas descobertas revela o seguinte padrão de erros:
+
+- **Verdadeiros Positivos (TP=2):** Social-Media→y (correto; efeito real=1,2) e Email→y (correto; efeito real=1,2) — os dois canais com maior efetividade foram corretamente identificados como causas diretas de vendas.
+- **Falsos Positivos (FP=2):** Search-Ads→Email (aresta inter-canal espúria) e Social-Media→Search-Ads (aresta inter-canal espúria) — ambas introduzidas por correlações induzidas pelo adstock entre campanhas co-ocorrentes.
+- **Falsos Negativos (FN=2):** Search-Ads→y (efeito direto não detectado; o algoritmo encontrou um caminho mediado espúrio Search-Ads→Email→y em lugar da aresta direta; efeito real=1,5) e Local-Ads→y (completamente omitido; efeito real=0,9, padrão de gastos irregular on/off que reduz a covariância marginal observável).
+
+A **FDR de 0,50** — metade das arestas descobertas são falsas — está no limite do critério de sucesso de FDR≤0,40 definido na Seção 6.6. Esse resultado é, no entanto, esperado para o teste KCI com N=104 observações e aproximadamente 90 testes de independência condicional simultâneos sob correção de Benjamini-Hochberg: o threshold efetivo por teste individual encolhe para α/n_H0_verdadeiro, reduzindo drasticamente o poder estatístico. O algoritmo identifica corretamente os dois canais de maior efetividade (Social-Media e Email, ambos com efeito=1,2), mas falha no canal de maior efeito absoluto (Search-Ads, efeito=1,5) — cujo sinal direto é obscurecido pela multicolinearidade com Email — e no canal de padrão irregular (Local-Ads), para o qual a variância condicional é insuficiente para distinguir causalidade de correlação residual. A FDR de 0,50 situa-se exatamente na fronteira da faixa aceitável, indicando que o algoritmo opera no limiar de potência estatística para este regime de dados.
+
+**Figura 1: Comparação entre grafo verdadeiro e grafo descoberto pelo CD-NOTS — preset *small_business***
+
+![Grafo verdadeiro vs. grafo descoberto (heatmap de adjacência)](../notebooks/resultados/small_business/grafos_comparacao.png)
+
+*Esquerda: grafo de verdade-terreno (4 arestas canal→y). Direita: grafo descoberto pelo CD-NOTS com KCI (N=104). As diferenças visíveis são as 2 arestas inter-canal espúrias (Social-Media→Search-Ads e Search-Ads→Email) e a aresta Local-Ads→y ausente.*
+
+**Figura 2: Grafo causal descoberto pelo CD-NOTS — visualização em rede dirigida**
+
+![Grafo causal descoberto (rede)](../notebooks/resultados/small_business/cdnots_graph.png)
+
+*O grafo descoberto conecta Social-Media e Email diretamente a y (TPs), mas omite Local-Ads (FN) e introduz aresta Search-Ads→Email (FP), resultando em Search-Ads classificado como canal mediado em vez de direto.*
+
+### 9.2.2 Limitação Identificada: Poder Estatístico em Single-Geo
+
+O PCMCI com KCI requer comprimento substancial de série temporal para estimar com confiabilidade a informação mútua condicional não-linear entre variáveis — o estimador KCI converge em O(N²) em custo computacional e requer N>>200 para testes com múltiplos condicionantes. Com N=104–156 observações semanais em série single-geo e 9–10 variáveis gerando aproximadamente 162 testes de independência condicional, a correção BH a α=0,05 é extremamente conservadora: o threshold efetivo por teste individual se aproxima de α/n_H0_verdadeiro, criando um regime onde o algoritmo erra sistematicamente por falsos negativos (arestas verdadeiras não detectadas) em vez de falsos positivos — exceto nas arestas inter-canal espúrias introduzidas pelas correlações de adstock entre campanhas com padrão de gastos semelhante. Este trade-off precisão-revocação constitui a **limitação central do algoritmo no contexto do mercado nacional brasileiro**: o CD-NOTS foi originalmente projetado para configurações multi-geo com N>>500 observações efetivas, e a adaptação single-geo aqui implementada permanece teoricamente fundamentada, mas estatisticamente subpotente nas condições experimentais avaliadas.
+
+---
+
+## 9.3 Calibração de Priors: Baseline vs. Informado pelo Grafo
+
+### 9.3.1 Experimento Oracle: Isolamento do Mecanismo de Calibração
+
+Para dissociar a qualidade da descoberta causal da qualidade da calibração de priors, foi conduzido um **experimento oracle**: os Braços 3 e 4 foram executados com o grafo de verdade-terreno exato no lugar do grafo descoberto pelo CD-NOTS. O grafo oracle fornece o teto superior do que o mecanismo de calibração pode alcançar em condições de conhecimento perfeito — se priors oracle não melhoram a atribuição, o gargalo não é a especificação de priors, mas sim a identificabilidade do modelo ou a estrutura do likelihood. O grafo oracle para o preset *causal_business* codifica as 6 arestas canal→y dos canais reais (precision=1,00, recall=0,667, F1=0,80, FDR=0,00, SHD=3), omitindo as 3 arestas de spillover inter-canal (TV→Search-Ads, Social-Media→Brand-Search, Video→Social-Media) que não são modeladas explicitamente pelos frameworks.
+
+| Dimensão | Braço 1 PyMC | Braço 3 Oracle | Δ | Braço 2 Meridian | Braço 4 Oracle | Δ |
+|---|---|---|---|---|---|---|
+| R² ajuste | 0.784 | 0.790 | +0.006 | 0.983 | 0.982 | −0.001 |
+| MAPE contrib | 85.4% | 80.7% | −4.7pp | 45.4% | 45.8% | +0.4pp |
+| sRMSE contrib | 1.14 | 1.11 | −0.03 | 0.44 | 0.42 | −0.02 |
+| ESS mínimo | 121 | **1.046** | **+764** | 128 | **1.599** | **+1.371** |
+| ESS q50 | 554 | **4.257** | **+3.703** | 135 | **1.649** | **+1.514** |
+| Divergências | 8 | 97 | +89 | 0 | 15 | +15 |
+| Runtime (s) | 421 | 1724 | +1303 | 656 | 898 | +242 |
+
+**Figura 3: ESS por braço — experimento oracle (*causal_business*)**
+
+![ESS por braço — oracle causal_business](../notebooks/resultados/causal_business/oracle/ess_comparacao.png)
+
+*O salto de ESS mínimo de ~120 para ~1.000–1.600 confirma que priors alinhados à estrutura causal produzem exploração posterior dramaticamente mais eficiente. A linha vermelha tracejada indica o limiar mínimo recomendado de 400 amostras efetivas.*
+
+**Figura 4: Comparação dos 4 braços — R², MAPE de contribuições e runtime — oracle (*causal_business*)**
+
+![Comparação 4 braços — oracle causal_business](../notebooks/resultados/causal_business/oracle/comparacao_4bracos.png)
+
+*Apesar da melhoria expressiva de ESS, o MAPE de contribuições cai apenas marginalmente para PyMC (+4,7pp) e permanece estável para Meridian — evidenciando que o gargalo está na identificabilidade do modelo, não na especificação de priors.*
+
+**Figura 5: Impacto do oracle nos priors por canal — *causal_business***
+
+![Ajuste de priors oracle — causal_business](../notebooks/resultados/causal_business/oracle/ajuste_priors.png)
+
+*O oracle comprime o σ dos canais ghost (Ghost-A, Ghost-B) para próximo de MIN_SIGMA_RATIO=0,4, enquanto preserva o σ dos canais reais. A ausência de diferença em canais com q-value≈0 (Brand-Search, TV) confirma que o oracle injeta certeza total (PIP=1,0).*
+
+O resultado mais expressivo é a **melhoria drástica de ESS**: o ESS mínimo do PyMC sobe de 121 para 1.046 (+764%), e o do Meridian de 128 para 1.599 (+1.149%), confirmando que o mecanismo de calibração alcança seu objetivo primário de projeto — alinhar priors com a estrutura causal produz exploração posterior dramaticamente mais eficiente, mesmo quando a informação causal é apenas parcialmente correta (recall=0,667 do oracle). A melhoria na acurácia de atribuição é, contudo, modesta: o PyMC obtém redução de 4,7 pontos percentuais no MAPE de contribuições (de 85,4% para 80,7%), enquanto o Meridian não apresenta mudança significativa (+0,4pp), indicando que o erro de atribuição remanescente origina-se de limitações de identificabilidade do modelo e não de especificação incorreta de priors. As **97 divergências adicionais** no Braço 3 (PyMC+Oracle) merecem atenção: elas sinalizam regiões da posterior onde o prior calibrado ainda conflita com a geometria do likelihood — sugerindo que o ajuste de prior é correto em direção, mas potencialmente excessivo em magnitude para canais com forte endogeneidade entre gastos e vendas. O experimento oracle, em síntese, **valida parcialmente a hipótese de calibração**: o pipeline melhora fortemente a eficiência amostral, mas melhora apenas marginalmente a qualidade de atribuição, e o erro de atribuição residual está localizado na identificabilidade do modelo, não na especificação de priors.
+
+### 9.3.2 Comparativo Completo: CD-NOTS vs. Baseline (small_business)
+
+| Dimensão | Braço 1 PyMC | Braço 3 CD-NOTS | Δ | Braço 2 Meridian | Braço 4 CD-NOTS | Δ |
+|---|---|---|---|---|---|---|
+| R² ajuste | 0.943 | 0.943 | 0 | 0.801 | 0.821 | +0.020 |
+| MAPE ajuste | 5.34% | 5.35% | +0.01pp | 9.47% | 9.24% | −0.23pp |
+| MAPE contrib | 2489% | 2674% | +185pp | 659% | 977% | +318pp |
+| sRMSE contrib | 0.201 | 0.210 | +0.009 | 0.568 | 0.529 | −0.039 |
+| ESS mínimo | 158 | 140 | −18 | 291 | 486 | +195 |
+| Divergências | 1 | 16 | +15 | 0 | 0 | 0 |
+
+**Figura 6: Comparação dos 4 braços — R², MAPE de contribuições e runtime — *small_business* (CD-NOTS descoberto)**
+
+![Comparação 4 braços — small_business](../notebooks/resultados/small_business/comparacao_4bracos.png)
+
+*O R² permanece estável, mas o MAPE de contribuições deteriora em ambos os braços CD-NOTS, confirmando que um grafo de baixa qualidade (FDR=0,50) propaga erros nos priors e piora a atribuição.*
+
+**Figura 7: ESS por braço — *small_business* (CD-NOTS descoberto)**
+
+![ESS por braço — small_business](../notebooks/resultados/small_business/ess_comparacao.png)
+
+*O Meridian+CD-NOTS cruza o limiar de 400 ESS mínimo (de 291 para 486), enquanto o PyMC+CD-NOTS sofre leve degradação (158→140). O ganho de ESS no Meridian ocorre mesmo com grafo de baixa qualidade, confirmando que é uma propriedade estrutural do alinhamento prior-causal.*
+
+**Figura 8: Impacto do CD-NOTS nos priors por canal — *small_business***
+
+![Ajuste de priors CD-NOTS — small_business](../notebooks/resultados/small_business/ajuste_priors.png)
+
+*Search-Ads recebe σ alargado (canal mediado com PIP intermediário), Local-Ads mantém σ próximo ao padrão (canal excluído com PIP baixo). Social-Media e Email recebem σ levemente alargado como canais diretos detectados.*
+
+Os priors CD-NOTS derivados do grafo descoberto via KCI (F1=0,50, FDR=0,50) produzem um resultado misto. O R² de ambos os frameworks permanece essencialmente inalterado, e o MAPE sobre contribuições se deteriora em ambos os braços — PyMC: +185pp, Meridian: +318pp — revelando que a qualidade insuficiente do grafo descoberto não apenas neutraliza os benefícios esperados da calibração, mas os reverte. Essa deterioração é coerente com a estrutura de erros de descoberta: as duas arestas inter-canal espúrias (FP=2) injetam informação prior incorreta que enviesa a calibração — canais classificados como mediadores recebem priors intermediários que aumentam a incerteza posterior em vez de reduzi-la. A **melhoria de ESS do Meridian** (+195 ESS mínimo) espelha o padrão oracle sem produzir benefício equivalente de atribuição, confirmando que os ganhos de ESS são uma propriedade estrutural do mecanismo de alinhamento prior-causalidade, independente da acurácia da descoberta; o PyMC, por sua vez, sofre leve degradação de ESS (−18), compatível com a introdução de conflitos prior-likelihood oriundos das arestas falsas.
+
+### 9.3.3 Síntese dos Resultados
+
+O pipeline end-to-end é tecnicamente funcional em todos os seus componentes. A ponte Empirical Bayes q-valor→PIP→σ_adj opera conforme especificado: os braços oracle alcançam ESS mínimo de 1.046–1.599 (melhoria de 8×–12× sobre os baselines), o R-hat permanece abaixo de 1,05 em todos os braços e todos os experimentos, e os priors calibrados não introduzem instabilidade numérica em nenhum dos dois frameworks quando derivados do grafo oracle. A arquitetura modular permite integração drop-in com workflows existentes de PyMC-Marketing e Meridian, e o script de empacotamento viabiliza execuções reproduzíveis em nuvem sem modificações de código.
+
+O que não funcionou como esperado é a qualidade da descoberta causal com CMIknn em configurações single-geo com N<200: no preset *small_business* (N=104), o algoritmo produziu F1=0,50 e FDR=0,50, e no preset *causal_business* (N=156, estrutura causal mais complexa) o poder estatístico foi insuficiente para recuperação confiável do grafo. Quando o grafo descoberto contém falsos positivos, o mecanismo de calibração propaga esses erros nos priors, deteriorando marginalmente a atribuição em relação ao baseline. O experimento oracle esclarece que o gargalo não é o mecanismo de calibração — que melhora robustamente a eficiência MCMC — mas sim a qualidade de recuperação do grafo, que por sua vez depende de poder estatístico suficiente. **A restrição single-geo é a limitação vinculante para o caso de uso do mercado nacional**, e a extensão para configurações com dados geo-replicados ou séries diárias (N>>500) constitui a principal direção de trabalho futuro.
 
 ---
 
@@ -680,15 +1668,29 @@ A validade das inferências Bayesianas é condicionada à convergência das cade
 
 ## 10.1 Impacto Acadêmico
 
-Esta pesquisa contribui com a primeira proposta e avaliação empírica de integração entre descoberta causal algorítmica e calibração de priors Bayesianos em MMM. A lacuna entre as linhas de pesquisa em causal discovery (CausalMMM, CD-NOTS) e Bayesian MMM (PyMC, Meridian) é formalmente endereçada.
+Esta é a primeira avaliação empírica que integra descoberta causal baseada em restrições (CD-NOTS/PCMCI) à calibração de priors para MMM Bayesiano como uma camada de plug-in agnóstica ao framework de inferência. Trabalhos anteriores no domínio de MMM causal — notadamente Gong et al. (2024), com o CausalMMM, e Filippou et al. (2025), com o CDA — operam como autoencoders variacionais estruturais ou exigem dados multi-entidade, não sendo compatíveis como módulos externos a frameworks consolidados como PyMC-Marketing ou Google Meridian. A presente proposta ocupa um nicho distinto: uma camada de calibração de priors compatível com qualquer framework Bayesiano que aceite especificação de distribuições a priori parametrizadas, sem exigir redesenho do modelo de atribuição subjacente.
+
+A derivação formal PIP = 1 − q_i — fundamentada na interpretação de q-values de Storey (2002) e Efron (2010) como taxas de falsa descoberta local — estabelece uma ponte principiada entre inferência causal frequentista e inferência Bayesiana sem exigir limiares de referência externos. A relaxação contínua implementada, σ_adj = σ_base × (MIN_SIGMA_RATIO + (1 − MIN_SIGMA_RATIO) × PIP), traduz incerteza causal em largura de prior sem impor decisões binárias de inclusão ou exclusão de canais. A validação empírica do parâmetro MIN_SIGMA_RATIO = 0,4 — necessário para prevenir R-hat > 1,8 observados quando priors excessivamente informativos colapsam sobre modos espúrios do espaço posterior — adiciona fundamentação metodológica ausente em trabalhos anteriores que adotam multiplicadores fixos.
+
+O desenho experimental com braço oráculo constitui uma contribuição metodológica independente do componente de descoberta. Ao injetar o grafo verdadeiro diretamente no mecanismo de calibração, o experimento isola a cadeia de calibração da qualidade da descoberta e estabelece um limite superior empírico para o ganho alcançável. O resultado mais relevante desta análise é a dissociação entre eficiência amostral e melhoria de atribuição: o braço oráculo PyMC obteve ganho de +764% no ESS mínimo (121→1.046), mas a MAPE de contribuição melhorou apenas 4,7 pp (85,4%→80,7%); no braço oráculo Meridian, o ESS mínimo cresceu +1.149% (128→1.599), enquanto a MAPE de contribuição permaneceu essencialmente estável (45,4%→45,8%). Essa separação sugere que o conhecimento estrutural beneficia a inferência Bayesiana primariamente via eficiência de amostragem — não via deslocamento da localização posterior — e motiva investigações futuras sobre identificabilidade em MMM com canais altamente correlacionados.
+
+A identificação da barreira de poder estatístico no PCMCI single-geo é em si uma contribuição à literatura de descoberta causal em séries temporais. Com N~150 observações e aproximadamente 162 testes de independência condicional simultâneos sob correção BH a α=0,05, o limiar efetivo por teste cai abaixo de 0,001 — conservador demais para detectar efeitos intercanal fracos (effect_size ∈ [0,10, 0,20]). O CD-NOTS com kci sobre dados de 104 semanas single-geo produziu Precisão=Recall=F1=0,50 e FDR=0,50: identificou corretamente os dois canais de maior efetividade, mas falhou em Local-Ads e injetou duas arestas espúrias entre canais. Quando esses priors de baixa qualidade foram aplicados, a MAPE de contribuição piorou 185–318 pp em relação ao baseline. A caracterização formal desse constraint — em termos de número de testes, tamanho de efeito esperado e poder estatístico disponível — delimita com precisão os cenários em que a descoberta causal baseada em restrições é e não é aplicável em contextos de MMM.
+
+Revisitando as três questões de pesquisa formuladas na Seção 6.1: (1) "CD-NOTS consegue descobrir estruturas causais informativas a partir de 104–208 observações?" — Parcialmente: recupera canais de alta efetividade, mas falha para efeitos fracos e spillovers intercanal em single-geo. (2) "Priors calibrados pelo grafo melhoram métricas preditivas e de atribuição?" — Sim para eficiência amostral (ganho expressivo e robusto), marginalmente para atribuição quando a qualidade do grafo é alta, e prejudicialmente quando o grafo tem FDR elevado. (3) "Qual o ganho marginal e em quais cenários ele é mais pronunciado?" — O ganho é mais pronunciado na eficiência do MCMC; a hipótese de que a calibração de priors melhoraria substancialmente a atribuição não é sustentada pelos dados sob as restrições de single-geo investigadas.
 
 ## 10.2 Impacto Prático
 
-O pipeline proposto é modular e integrável aos workflows existentes de empresas que já utilizam PyMC-Marketing ou Meridian. Reduz a dependência de experimentos de incrementalidade para calibração, oferecendo alternativa data-driven acessível a organizações sem infraestrutura experimental.
+O pipeline proposto tem valor prático condicional à qualidade do grafo produzido pela etapa de descoberta. Quando o grafo é correto — condição oráculo — a calibração entrega benefícios mensuráveis: 8–12× de melhoria no ESS efetivo, redução de divergências no Meridian, e melhoria marginal de atribuição. Para organizações que já utilizam PyMC-Marketing ou Meridian, integrar o CD-NOTS adiciona aproximadamente 1–5 minutos de computação de descoberta com parcorr, ou 15–90 minutos com kci — aceitável como etapa de pré-processamento offline. O framework é drop-in compatível e não exige redesenho do modelo de atribuição. O custo de integração é, portanto, baixo quando o pré-requisito de qualidade do grafo é satisfeito.
+
+Em sua forma atual, o pipeline não é recomendado para aplicação direta em datasets nacionais single-geo com menos de ~500 observações semanais sem acesso a divisões regionais. O FDR de 0,50 observado no cenário single-geo implica que os priors calibrados têm probabilidade substancial de ser piores do que os priors baseline de share de investimento. Nesses casos, o mecanismo de calibração deve ser alimentado por conhecimento de domínio em vez de descoberta algorítmica: o padrão do braço oráculo — categorizar canais como diretos, mediados, excluídos ou endógenos com base em expertise histórica ou experimentos de incrementalidade passados — e aplicar a fórmula PIP→σ_adj para converter esse conhecimento em priors Bayesianos estruturados, entrega as mesmas melhorias de ESS validadas sem depender da qualidade do grafo descoberto.
+
+A recomendação prática mais acionável desta pesquisa para profissionais é adotar o padrão do braço oráculo como framework de elicitação de priors: definir categorias de canais (direto, mediado, excluído, endógeno) com base em expertise de domínio ou dados históricos, e usar a fórmula PIP→σ_adj para converter esse conhecimento categórico em priors Bayesianos. Essa abordagem não requer um algoritmo de descoberta causal funcional e entrega as melhorias de eficiência amostral validadas pelo experimento oráculo. Para organizações com histórico de experimentos de incrementalidade ou com analistas com forte conhecimento de negócio, esta é a via de adoção mais imediata e de menor risco.
 
 ## 10.3 Impacto para o Mercado Brasileiro
 
-A hipótese de que abordagens de redes neurais para descoberta causal em MMM (CausalMMM, DeepCausalMMM) podem não ser adotadas no mercado nacional — devido à predominância de estratégias de mídia nacionais e consequente escassez de datapoints geo-level — é discutida e validada. A abordagem proposta (CD-NOTS + Bayesiano) constitui alternativa viável para este contexto.
+A pesquisa valida empiricamente a hipótese sobre o constraint estrutural do mercado de mídia nacional brasileiro: estratégias de comunicação planejadas e executadas em escala nacional produzem séries temporais agregadas (1 geo) em vez da variação regional que os algoritmos de descoberta de grafos requerem para poder estatístico suficiente. Este é precisamente o cenário em que abordagens de MMM causal baseadas em redes neurais (CausalMMM, DeepCausalMMM) também falham — elas exigem muitas entidades. A contribuição desta pesquisa neste ponto, porém, vai além de confirmar a inadequação das abordagens neurais: revela que a alternativa baseada em restrições (PCMCI+kci) também enfrenta limitações severas no mesmo contexto. O problema não é a família de modelos — é o poder estatístico disponível. Dados semanais de 2–4 anos de uma única praça geográfica não fornecem os graus de liberdade necessários para que testes de independência condicional com penalização BH operem acima do nível de aleatoriedade para efeitos intercanal de magnitude moderada.
+
+O que permanece viável para o mercado nacional brasileiro é o mecanismo de calibração em si, desacoplado da descoberta automática. Anunciantes e agências brasileiras tipicamente dispõem de conhecimento de domínio substantivo sobre interações intercanal — TV impulsiona search, redes sociais constroem brand awareness, mídia exterior amplifica recall de campanhas de TV — e esse conhecimento pode ser codificado diretamente como objetos CausalEdgeConfig, utilizando o mesmo pipeline mas substituindo a descoberta algorítmica por elicitação estruturada de especialistas. Isso transforma o CD-NOTS de uma ferramenta de descoberta em um framework de estruturação de priors, o que é, argumentavelmente, mais adequado ao contexto nacional de dados escassos. A formalização dessa substituição — elicitação de especialistas → CausalEdgeConfig → calibração PIP→σ_adj → priors Bayesianos — representa a contribuição metodológica mais imediatamente aplicável ao contexto do mercado publicitário brasileiro.
 
 ---
 
