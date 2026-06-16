@@ -52,6 +52,7 @@ def get_preset_config(preset_name: str, seed: int = 2025_07_15) -> MMMDataConfig
         'medium_business': _get_medium_business_preset,
         'large_business': _get_large_business_preset,
         'causal_business': _get_causal_business_preset,
+        'causal_large': _get_causal_large_preset,
     }
     
     if preset_name not in presets:
@@ -656,6 +657,8 @@ def list_available_presets() -> Dict[str, str]:
         'medium_business': 'Medium business with more budget and channels',
         'large_business': 'Large business with many channels and regions',
         'growing_business': 'Growing business with increasing spend patterns',
+        'causal_business': 'Business with inter-channel causal spillover effects (CD-NOTS benchmark)',
+        'causal_large': '1 geo, 20 media channels, 10 controls, 5 causal inter-channel edges (CD-NOTS at scale)',
         }
 
 
@@ -861,6 +864,104 @@ def _get_causal_business_preset(seed: int) -> MMMDataConfig:
                 value_trend=0.1,
                 base_effectiveness=-0.3,
             ),
+        ],
+        seed=seed,
+    )
+
+
+def _get_causal_large_preset(seed: int) -> MMMDataConfig:
+    """1 geo, 22 media channels (20 real + 2 ghost), 10 controls, 5 inter-channel causal edges.
+
+    Designed for CD-NOTS benchmarking at scale without multi-geo overhead.
+    Single national geo keeps Granger tests tractable (23 vars x 20 = 460 tests).
+
+    Causal structure (ground truth):
+        TV           -> Paid-Search      (lag=2, effect=0.22, decay=0.55)
+        Video        -> Social-Organic   (lag=1, effect=0.18, decay=0.40)
+        OOH          -> Brand-Search     (lag=3, effect=0.14, decay=0.60)
+        Social-Paid  -> Social-Organic   (lag=1, effect=0.12, decay=0.35)
+        Display      -> Paid-Search      (lag=1, effect=0.10, decay=0.30)
+        Real channels -> Sales (direct, via adstock + saturation)
+        Ghost-A, Ghost-B -> NO effect (base_effectiveness=0.0, pure noise)
+    """
+    return MMMDataConfig(
+        n_periods=208,  # 4 years — enough for Granger power on lagged effects
+        channels=[
+            # Upper-funnel brand channels
+            ChannelConfig(name="TV",             pattern="seasonal",      base_spend=8000.0, seasonal_amplitude=0.35, seasonal_phase=0.4, spend_volatility=0.08, base_effectiveness=0.9),
+            ChannelConfig(name="OOH",            pattern="seasonal",      base_spend=3000.0, seasonal_amplitude=0.20, seasonal_phase=0.8, spend_volatility=0.10, base_effectiveness=0.5),
+            ChannelConfig(name="Radio",          pattern="seasonal",      base_spend=2000.0, seasonal_amplitude=0.25, seasonal_phase=0.2, spend_volatility=0.12, base_effectiveness=0.4),
+            ChannelConfig(name="Podcast",        pattern="linear_trend",  base_spend=1200.0, spend_trend=0.05,                            spend_volatility=0.20, base_effectiveness=0.3),
+            ChannelConfig(name="Video",          pattern="linear_trend",  base_spend=4000.0, spend_trend=0.07,                            spend_volatility=0.18, base_effectiveness=0.6),
+            # Mid-funnel consideration channels
+            ChannelConfig(name="Social-Paid",    pattern="seasonal",      base_spend=3500.0, seasonal_amplitude=0.20, seasonal_phase=0.6, spend_volatility=0.15, base_effectiveness=0.55),
+            ChannelConfig(name="Social-Organic", pattern="seasonal",      base_spend=1800.0, seasonal_amplitude=0.30, seasonal_phase=0.5, spend_volatility=0.22, base_effectiveness=0.45),
+            ChannelConfig(name="Display",        pattern="on_off",        base_spend=2500.0, activation_probability=0.70,                 spend_volatility=0.18, base_effectiveness=0.35),
+            ChannelConfig(name="Programmatic",   pattern="on_off",        base_spend=2000.0, activation_probability=0.65,                 spend_volatility=0.20, base_effectiveness=0.30),
+            ChannelConfig(name="Native-Ads",     pattern="linear_trend",  base_spend=1500.0, spend_trend=0.03,                            spend_volatility=0.16, base_effectiveness=0.28),
+            # Lower-funnel performance channels
+            ChannelConfig(name="Paid-Search",    pattern="linear_trend",  base_spend=5000.0, spend_trend=0.04,                            spend_volatility=0.12, base_effectiveness=0.80),
+            ChannelConfig(name="Brand-Search",   pattern="seasonal",      base_spend=2500.0, seasonal_amplitude=0.18, seasonal_phase=0.3, spend_volatility=0.10, base_effectiveness=0.70),
+            ChannelConfig(name="Shopping-Ads",   pattern="seasonal",      base_spend=3000.0, seasonal_amplitude=0.28, seasonal_phase=0.1, spend_volatility=0.14, base_effectiveness=0.65),
+            ChannelConfig(name="Retargeting",    pattern="on_off",        base_spend=1800.0, activation_probability=0.75,                 spend_volatility=0.16, base_effectiveness=0.60),
+            ChannelConfig(name="Affiliate",      pattern="linear_trend",  base_spend=1200.0, spend_trend=0.02,                            spend_volatility=0.14, base_effectiveness=0.50),
+            # Emerging / digital channels
+            ChannelConfig(name="CTV",            pattern="linear_trend",  base_spend=2000.0, spend_trend=0.09,                            spend_volatility=0.22, base_effectiveness=0.40),
+            ChannelConfig(name="Streaming-Audio",pattern="linear_trend",  base_spend=800.0,  spend_trend=0.06,                            spend_volatility=0.25, base_effectiveness=0.25),
+            ChannelConfig(name="Influencer",     pattern="on_off",        base_spend=1500.0, activation_probability=0.50,                 spend_volatility=0.30, base_effectiveness=0.35),
+            ChannelConfig(name="Email",          pattern="seasonal",      base_spend=600.0,  seasonal_amplitude=0.15, seasonal_phase=0.0, spend_volatility=0.08, base_effectiveness=0.55),
+            ChannelConfig(name="Push-Notif",     pattern="on_off",        base_spend=400.0,  activation_probability=0.60,                 spend_volatility=0.12, base_effectiveness=0.40),
+            # Ghost channels: pure noise, zero real effectiveness
+            ChannelConfig(name="Ghost-A",        pattern="seasonal",      base_spend=2000.0, seasonal_amplitude=0.30,                     spend_volatility=0.25, base_effectiveness=0.0),
+            ChannelConfig(name="Ghost-B",        pattern="on_off",        base_spend=1500.0, activation_probability=0.50,                 spend_volatility=0.20, base_effectiveness=0.0),
+        ],
+        causal_edges=[
+            CausalEdgeConfig(source_channel="TV",          target_channel="Paid-Search",    effect_size=0.22, lag=2, decay=0.55),
+            CausalEdgeConfig(source_channel="Video",       target_channel="Social-Organic", effect_size=0.18, lag=1, decay=0.40),
+            CausalEdgeConfig(source_channel="OOH",         target_channel="Brand-Search",   effect_size=0.14, lag=3, decay=0.60),
+            CausalEdgeConfig(source_channel="Social-Paid", target_channel="Social-Organic", effect_size=0.12, lag=1, decay=0.35),
+            CausalEdgeConfig(source_channel="Display",     target_channel="Paid-Search",    effect_size=0.10, lag=1, decay=0.30),
+        ],
+        regions=RegionConfig(
+            n_regions=1,
+            region_names=["national"],
+            base_sales_rate=50000.0,
+            sales_trend=0.015,
+            sales_volatility=0.02,
+            seasonal_amplitude=0.12,
+            baseline_variation=0.0,
+            channel_param_variation=0.0,
+            transform_variation=0.0,
+        ),
+        transforms=TransformConfig(
+            adstock_fun="geometric_adstock",
+            adstock_kwargs=[
+                {"alpha": 0.70, "l_max": 8}, {"alpha": 0.55, "l_max": 8}, {"alpha": 0.50, "l_max": 8}, {"alpha": 0.40, "l_max": 8}, {"alpha": 0.65, "l_max": 8},
+                {"alpha": 0.55, "l_max": 8}, {"alpha": 0.45, "l_max": 8}, {"alpha": 0.35, "l_max": 8}, {"alpha": 0.30, "l_max": 8}, {"alpha": 0.38, "l_max": 8},
+                {"alpha": 0.60, "l_max": 8}, {"alpha": 0.55, "l_max": 8}, {"alpha": 0.58, "l_max": 8}, {"alpha": 0.50, "l_max": 8}, {"alpha": 0.45, "l_max": 8},
+                {"alpha": 0.62, "l_max": 8}, {"alpha": 0.42, "l_max": 8}, {"alpha": 0.38, "l_max": 8}, {"alpha": 0.35, "l_max": 8}, {"alpha": 0.30, "l_max": 8},
+                {"alpha": 0.40, "l_max": 8}, {"alpha": 0.30, "l_max": 8},  # Ghost-A, Ghost-B
+            ],
+            saturation_fun="hill_function",
+            saturation_kwargs=[
+                {"slope": 0.9, "kappa": 0.20}, {"slope": 0.7, "kappa": 0.25}, {"slope": 0.7, "kappa": 0.28}, {"slope": 0.6, "kappa": 0.30}, {"slope": 1.0, "kappa": 0.18},
+                {"slope": 0.9, "kappa": 0.20}, {"slope": 0.8, "kappa": 0.22}, {"slope": 0.7, "kappa": 0.26}, {"slope": 0.6, "kappa": 0.28}, {"slope": 0.6, "kappa": 0.30},
+                {"slope": 1.2, "kappa": 0.14}, {"slope": 1.1, "kappa": 0.15}, {"slope": 1.0, "kappa": 0.16}, {"slope": 1.0, "kappa": 0.18}, {"slope": 0.9, "kappa": 0.20},
+                {"slope": 0.8, "kappa": 0.22}, {"slope": 0.6, "kappa": 0.30}, {"slope": 0.7, "kappa": 0.26}, {"slope": 0.9, "kappa": 0.18}, {"slope": 0.7, "kappa": 0.24},
+                {"slope": 1.0, "kappa": 0.15}, {"slope": 1.0, "kappa": 0.15},  # Ghost-A, Ghost-B
+            ],
+        ),
+        control_variables=[
+            ControlConfig(name="price-index",         pattern="linear_trend", base_value=100.0, value_trend=0.02,  value_volatility=0.05, base_effectiveness=-0.40),
+            ControlConfig(name="promotions",           pattern="on_off",       base_value=1.0,   activation_probability=0.15, value_volatility=0.80, base_effectiveness=0.25),
+            ControlConfig(name="gdp-index",            pattern="linear_trend", base_value=100.0, value_trend=0.01,  value_volatility=0.02, base_effectiveness=0.30),
+            ControlConfig(name="competitor-spend",     pattern="seasonal",     base_value=5000.0, seasonal_amplitude=0.20, value_volatility=0.15, base_effectiveness=-0.20),
+            ControlConfig(name="consumer-confidence",  pattern="seasonal",     base_value=80.0,  seasonal_amplitude=0.10, value_volatility=0.04, base_effectiveness=0.15),
+            ControlConfig(name="seasonality",          pattern="seasonal",     base_value=1.0,   seasonal_amplitude=0.30, value_volatility=0.02, base_effectiveness=0.20),
+            ControlConfig(name="inventory-flag",       pattern="on_off",       base_value=1.0,   activation_probability=0.10, value_volatility=0.50, base_effectiveness=-0.15),
+            ControlConfig(name="events",               pattern="on_off",       base_value=1.0,   activation_probability=0.08, value_volatility=1.00, base_effectiveness=0.35),
+            ControlConfig(name="temp-index",           pattern="seasonal",     base_value=15.0,  seasonal_amplitude=0.60, value_volatility=0.05, base_effectiveness=0.10),
+            ControlConfig(name="holiday-flag",         pattern="on_off",       base_value=1.0,   activation_probability=0.06, value_volatility=0.50, base_effectiveness=0.45),
         ],
         seed=seed,
     )
