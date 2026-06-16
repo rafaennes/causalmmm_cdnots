@@ -3,3 +3,9 @@ __pycache__/
 *.pyo
 .pixi/
 .claude/
+
+# Large model checkpoint files
+*.pkl
+notebooks/resultados/**/checkpoints/
+*.ipynb.bak
+notebooks/*-checkpoint.ipynb
