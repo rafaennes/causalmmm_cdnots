@@ -50,7 +50,7 @@ matplotlib.use('Agg')  # backend não-interativo para execução em background
 # ─── Paths das duas repos ───────────────────────────────────────────────────
 PYMC_COMPARISON_ROOT = "/home/ennes/mestrado/pymc_meridian_comparison"
 CAUSALMMM_ROOT       = "/home/ennes/mestrado/causalmmm_with_cdnots"
-ARQUIVOS_RECENTES    = os.path.join(CAUSALMMM_ROOT, "arquivos_recentes")
+ARQUIVOS_RECENTES    = os.path.join(CAUSALMMM_ROOT, "cdnots")
 RESULTS_DIR          = os.path.join(CAUSALMMM_ROOT, "notebooks", "resultados")
 
 os.makedirs(RESULTS_DIR, exist_ok=True)

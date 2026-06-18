@@ -9,7 +9,7 @@ PYMC_ROOT = os.environ.get(
     "PYMC_MERIDIAN_ROOT",
     "/home/ennes/mestrado/pymc_meridian_comparison",
 )
-ARQUIVOS       = os.path.join(CAUSALMMM_ROOT, "arquivos_recentes")
+ARQUIVOS       = os.path.join(CAUSALMMM_ROOT, "cdnots")
 
 for p in [PYMC_ROOT, CAUSALMMM_ROOT]:
     if p not in sys.path:

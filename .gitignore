@@ -3,6 +3,12 @@ __pycache__/
 *.pyo
 .pixi/
 .claude/
+.pytest_cache/
+causalmmm.egg-info/
+
+# Claude Code internal files
+CLAUDE.md
+docs/superpowers/
 
 # Large model checkpoint files
 *.pkl
