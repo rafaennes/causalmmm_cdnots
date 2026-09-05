@@ -730,7 +730,7 @@ def _get_causal_business_preset(seed: int) -> MMMDataConfig:
                 name="Search-Ads",
                 pattern="linear_trend",
                 base_spend=3000.0,
-                spend_trend=0.03,
+                spend_trend=0.004,  # ponytail: ~20% annual growth (was 0.03 — 5.7× in 3yr, unrealistic)
                 spend_volatility=0.15,
                 base_effectiveness=0.7
             ),
@@ -755,7 +755,7 @@ def _get_causal_business_preset(seed: int) -> MMMDataConfig:
                 name="Video",
                 pattern="linear_trend",
                 base_spend=2000.0,
-                spend_trend=0.06,
+                spend_trend=0.006,  # ponytail: ~25% annual growth (was 0.06 — 10.3× in 3yr, unrealistic)
                 spend_volatility=0.20,
                 base_effectiveness=0.4
             ),
@@ -784,6 +784,7 @@ def _get_causal_business_preset(seed: int) -> MMMDataConfig:
                 pattern="seasonal",
                 base_spend=2000.0,
                 seasonal_amplitude=0.3,
+                seasonal_phase=1.5708,  # ponytail: π/2 — A0.4 fix, orthogonal to phase=0 real channels
                 spend_volatility=0.25,
                 base_effectiveness=0.0,  # NO real effect on sales
             ),
@@ -891,28 +892,28 @@ def _get_causal_large_preset(seed: int) -> MMMDataConfig:
             ChannelConfig(name="TV",             pattern="seasonal",      base_spend=8000.0, seasonal_amplitude=0.35, seasonal_phase=0.4, spend_volatility=0.08, base_effectiveness=0.9),
             ChannelConfig(name="OOH",            pattern="seasonal",      base_spend=3000.0, seasonal_amplitude=0.20, seasonal_phase=0.8, spend_volatility=0.10, base_effectiveness=0.5),
             ChannelConfig(name="Radio",          pattern="seasonal",      base_spend=2000.0, seasonal_amplitude=0.25, seasonal_phase=0.2, spend_volatility=0.12, base_effectiveness=0.4),
-            ChannelConfig(name="Podcast",        pattern="linear_trend",  base_spend=1200.0, spend_trend=0.05,                            spend_volatility=0.20, base_effectiveness=0.3),
-            ChannelConfig(name="Video",          pattern="linear_trend",  base_spend=4000.0, spend_trend=0.07,                            spend_volatility=0.18, base_effectiveness=0.6),
+            ChannelConfig(name="Podcast",        pattern="linear_trend",  base_spend=1200.0, spend_trend=0.005,                           spend_volatility=0.20, base_effectiveness=0.3),  # ponytail: ~21% annual (was 0.05)
+            ChannelConfig(name="Video",          pattern="linear_trend",  base_spend=4000.0, spend_trend=0.006,                           spend_volatility=0.18, base_effectiveness=0.6),  # ponytail: ~25% annual (was 0.07)
             # Mid-funnel consideration channels
             ChannelConfig(name="Social-Paid",    pattern="seasonal",      base_spend=3500.0, seasonal_amplitude=0.20, seasonal_phase=0.6, spend_volatility=0.15, base_effectiveness=0.55),
             ChannelConfig(name="Social-Organic", pattern="seasonal",      base_spend=1800.0, seasonal_amplitude=0.30, seasonal_phase=0.5, spend_volatility=0.22, base_effectiveness=0.45),
             ChannelConfig(name="Display",        pattern="on_off",        base_spend=2500.0, activation_probability=0.70,                 spend_volatility=0.18, base_effectiveness=0.35),
             ChannelConfig(name="Programmatic",   pattern="on_off",        base_spend=2000.0, activation_probability=0.65,                 spend_volatility=0.20, base_effectiveness=0.30),
-            ChannelConfig(name="Native-Ads",     pattern="linear_trend",  base_spend=1500.0, spend_trend=0.03,                            spend_volatility=0.16, base_effectiveness=0.28),
+            ChannelConfig(name="Native-Ads",     pattern="linear_trend",  base_spend=1500.0, spend_trend=0.004,                           spend_volatility=0.16, base_effectiveness=0.28),  # ponytail: ~20% annual (was 0.03)
             # Lower-funnel performance channels
-            ChannelConfig(name="Paid-Search",    pattern="linear_trend",  base_spend=5000.0, spend_trend=0.04,                            spend_volatility=0.12, base_effectiveness=0.80),
+            ChannelConfig(name="Paid-Search",    pattern="linear_trend",  base_spend=5000.0, spend_trend=0.004,                           spend_volatility=0.12, base_effectiveness=0.80),  # ponytail: ~20% annual (was 0.04)
             ChannelConfig(name="Brand-Search",   pattern="seasonal",      base_spend=2500.0, seasonal_amplitude=0.18, seasonal_phase=0.3, spend_volatility=0.10, base_effectiveness=0.70),
             ChannelConfig(name="Shopping-Ads",   pattern="seasonal",      base_spend=3000.0, seasonal_amplitude=0.28, seasonal_phase=0.1, spend_volatility=0.14, base_effectiveness=0.65),
             ChannelConfig(name="Retargeting",    pattern="on_off",        base_spend=1800.0, activation_probability=0.75,                 spend_volatility=0.16, base_effectiveness=0.60),
-            ChannelConfig(name="Affiliate",      pattern="linear_trend",  base_spend=1200.0, spend_trend=0.02,                            spend_volatility=0.14, base_effectiveness=0.50),
+            ChannelConfig(name="Affiliate",      pattern="linear_trend",  base_spend=1200.0, spend_trend=0.003,                           spend_volatility=0.14, base_effectiveness=0.50),  # ponytail: ~15% annual (was 0.02)
             # Emerging / digital channels
-            ChannelConfig(name="CTV",            pattern="linear_trend",  base_spend=2000.0, spend_trend=0.09,                            spend_volatility=0.22, base_effectiveness=0.40),
-            ChannelConfig(name="Streaming-Audio",pattern="linear_trend",  base_spend=800.0,  spend_trend=0.06,                            spend_volatility=0.25, base_effectiveness=0.25),
+            ChannelConfig(name="CTV",            pattern="linear_trend",  base_spend=2000.0, spend_trend=0.008,                           spend_volatility=0.22, base_effectiveness=0.40),  # ponytail: ~30% annual (was 0.09)
+            ChannelConfig(name="Streaming-Audio",pattern="linear_trend",  base_spend=800.0,  spend_trend=0.006,                           spend_volatility=0.25, base_effectiveness=0.25),  # ponytail: ~25% annual (was 0.06)
             ChannelConfig(name="Influencer",     pattern="on_off",        base_spend=1500.0, activation_probability=0.50,                 spend_volatility=0.30, base_effectiveness=0.35),
             ChannelConfig(name="Email",          pattern="seasonal",      base_spend=600.0,  seasonal_amplitude=0.15, seasonal_phase=0.0, spend_volatility=0.08, base_effectiveness=0.55),
             ChannelConfig(name="Push-Notif",     pattern="on_off",        base_spend=400.0,  activation_probability=0.60,                 spend_volatility=0.12, base_effectiveness=0.40),
             # Ghost channels: pure noise, zero real effectiveness
-            ChannelConfig(name="Ghost-A",        pattern="seasonal",      base_spend=2000.0, seasonal_amplitude=0.30,                     spend_volatility=0.25, base_effectiveness=0.0),
+            ChannelConfig(name="Ghost-A",        pattern="seasonal",      base_spend=2000.0, seasonal_amplitude=0.30, seasonal_phase=1.5708, spend_volatility=0.25, base_effectiveness=0.0),  # A0.4: π/2
             ChannelConfig(name="Ghost-B",        pattern="on_off",        base_spend=1500.0, activation_probability=0.50,                 spend_volatility=0.20, base_effectiveness=0.0),
         ],
         causal_edges=[

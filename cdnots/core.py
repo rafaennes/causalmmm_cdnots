@@ -132,7 +132,11 @@ def generate_mmm_dataset(
         control_effects = control_data[[col for col in control_data.columns if col.endswith('_effect')]]
         
         # Calculate total sales using baseline_sales column
-        combined_data["y"] = baseline_data["baseline_sales"] + control_effects.sum(axis=1) + transformed_data.sum(axis=1)
+        # ponytail: clip to 0 — sales are non-negative; v2 controls (price<0) can push sum negative
+        combined_data["y"] = np.clip(
+            baseline_data["baseline_sales"] + control_effects.sum(axis=1) + transformed_data.sum(axis=1),
+            0, None,
+        )
 
 
         combined_data = combined_data.reset_index()
@@ -238,7 +242,10 @@ def _generate_channel_spend_data(
         col_names_ordered = []
         for i, channel in enumerate(regional_channels):
             region_seed = config.seed + region_idx * 1000 + i * 100 if config.seed is not None else None
-            base_spend = generate_channel_spend(channel, time_index, region_seed)
+            base_spend = generate_channel_spend(
+                channel, time_index, region_seed,
+                spec_version=getattr(config, 'spec_version', 'v1_legacy'),
+            )
             column_name = f'x{i+1}_{channel.name}' if channel.name != "" else f'x{i+1}'
             channel_spends[column_name] = base_spend.copy()
             col_names_ordered.append(column_name)
@@ -305,7 +312,10 @@ def _generate_control_variables(
             
             # Convert ChannelConfig to ControlConfig using the new from_channel_config method
             control = ControlConfig.from_channel_config(_control)
-            control_variable = generate_control_variable(control, time_index, region_seed)
+            control_variable = generate_control_variable(
+                control, time_index, region_seed,
+                spec_version=getattr(config, 'spec_version', 'v1_legacy'),
+            )
             region_data[f"c{idx+1}"] = control_variable
             region_data[f"c{idx+1}_effect"] = control_variable * control.base_effectiveness
         

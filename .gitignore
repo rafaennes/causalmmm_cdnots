@@ -21,3 +21,7 @@ causal_discovery/results/
 
 # Virtual environment
 .venv/
+
+# Generated docs and previews
+*.docx
+*.html

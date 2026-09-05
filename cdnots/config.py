@@ -82,9 +82,10 @@ class ChannelConfig:
             raise ValueError("min_active_periods must be at least 1")
         if self.max_active_periods < self.min_active_periods:
             raise ValueError("max_active_periods must be >= min_active_periods")
-        # Effectiveness parameters
-        if self.base_effectiveness < 0:
-            raise ValueError("base_effectiveness must be non-negative")
+        # ponytail: allow negative base_effectiveness (controls like price have
+        # negative effect). Upstream ChannelConfig rejects it but ControlConfig
+        # passes through generate_regional_channel_variations which creates
+        # ChannelConfig — so this validation breaks the real DGP.
         # Name validation
         if "_" in self.name:
             raise ValueError("channel name must not contain underscores (use hyphens instead)")
@@ -298,6 +299,9 @@ class MMMDataConfig:
     # Inter-channel causal relationships (ground truth for causal discovery evaluation)
     causal_edges: List['CausalEdgeConfig'] = field(default_factory=list)
     
+    # DGP version — spec v2 §A2: preserve v1 for qualification comparability
+    spec_version: Literal["v1_legacy", "v2"] = "v1_legacy"
+
     # Output options
     include_ground_truth: bool = True
     include_transformed_data: bool = True

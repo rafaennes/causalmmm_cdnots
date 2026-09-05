@@ -1,89 +1,89 @@
-Dataset,Model,Channel,Region,Bias,SRMSE,R²,MAPE (%),Braço
-causal_large,PyMC-Marketing - nutpie,x1_TV,national,-13019.089779118322,1.4150627523659154,-0.8055637963509112,90.79466615927673,Braço 1: PyMC Baseline
-causal_large,PyMC-Marketing - nutpie,x2_OOH,national,24515.993315986187,5.45246455794784,-26.22141123486037,3307.2017720117665,Braço 1: PyMC Baseline
-causal_large,PyMC-Marketing - nutpie,x3_Radio,national,8698.897874905573,2.9804888172680286,-8.58165888782986,172.80927850242384,Braço 1: PyMC Baseline
-causal_large,PyMC-Marketing - nutpie,x4_Podcast,national,-2181.292719446579,1.1476418003296758,-4.830472901143908,106.51533630570738,Braço 1: PyMC Baseline
-causal_large,PyMC-Marketing - nutpie,x5_Video,national,34944.25852429831,1.7927347891225476,-22.00522447108583,359.60752998895043,Braço 1: PyMC Baseline
-causal_large,PyMC-Marketing - nutpie,x6_Social-Paid,national,4079.1556603369363,2.2286380079743324,-3.559498463165374,999.0685928899275,Braço 1: PyMC Baseline
-causal_large,PyMC-Marketing - nutpie,x7_Social-Organic,national,1182.9960240106452,1.0686208960074217,-7.38745545810254,128.38274194930128,Braço 1: PyMC Baseline
-causal_large,PyMC-Marketing - nutpie,x8_Display,national,17617.062576142467,3.1544948425506463,-427.0690772678303,209.3338925291501,Braço 1: PyMC Baseline
-causal_large,PyMC-Marketing - nutpie,x9_Programmatic,national,-7780.657595689704,0.8565324279073873,-24.349537620774218,82.7381468179818,Braço 1: PyMC Baseline
-causal_large,PyMC-Marketing - nutpie,x10_Native-Ads,national,-902.3078100824276,1.3024936244488863,-7.84813588894399,150.49132845366282,Braço 1: PyMC Baseline
-causal_large,PyMC-Marketing - nutpie,x11_Paid-Search,national,-25934.244899052665,0.9616505892610322,-11.622798352917387,92.78052948871105,Braço 1: PyMC Baseline
-causal_large,PyMC-Marketing - nutpie,x12_Brand-Search,national,-13994.276488956217,1.293986394774428,-1.2258102682412955,700.2524087975537,Braço 1: PyMC Baseline
-causal_large,PyMC-Marketing - nutpie,x13_Shopping-Ads,national,-12383.31941523661,1.3387772600718322,-1.1447330846524006,99.04520142182358,Braço 1: PyMC Baseline
-causal_large,PyMC-Marketing - nutpie,x14_Retargeting,national,-23747.08070152065,0.9582966525826514,-103.36377447167808,95.27537324722127,Braço 1: PyMC Baseline
-causal_large,PyMC-Marketing - nutpie,x15_Affiliate,national,-11368.893696903157,1.058789988065863,-3.882095367698698,94.07349625295257,Braço 1: PyMC Baseline
-causal_large,PyMC-Marketing - nutpie,x16_CTV,national,-5158.703415848925,0.9091247237605338,-4.273165875330411,82.09655166140222,Braço 1: PyMC Baseline
-causal_large,PyMC-Marketing - nutpie,x17_Streaming-Audio,national,2827.523799522017,1.7744289569943832,-11.529290832015542,151.72144510714247,Braço 1: PyMC Baseline
-causal_large,PyMC-Marketing - nutpie,x18_Influencer,national,36019.94868300796,4.298095868973562,-380.1636136166777,443.79637555895675,Braço 1: PyMC Baseline
-causal_large,PyMC-Marketing - nutpie,x19_Email,national,-6906.056925252643,1.5818886652786104,-0.6544609624270965,99.01539147883271,Braço 1: PyMC Baseline
-causal_large,PyMC-Marketing - nutpie,x20_Push-Notif,national,-11626.23657156914,0.9372695578619812,-13.222312822348457,89.52173716167827,Braço 1: PyMC Baseline
-causal_large,PyMC-Marketing - nutpie,x21_Ghost-A,national,764.8763558215256,,,,Braço 1: PyMC Baseline
-causal_large,PyMC-Marketing - nutpie,x22_Ghost-B,national,1641.523283599849,,,,Braço 1: PyMC Baseline
-causal_large,Meridian,x1_TV,national,-4242.3322471886795,0.5038997944514727,0.7710451743993663,75.83453361693647,Braço 2: Meridian Baseline
-causal_large,Meridian,x2_OOH,national,4185.011814120357,1.6364346851979183,-1.4520102769470862,86.45368438285941,Braço 2: Meridian Baseline
-causal_large,Meridian,x3_Radio,national,3619.64384815942,1.281902518565818,-0.7724570241664972,107.95648385789374,Braço 2: Meridian Baseline
-causal_large,Meridian,x4_Podcast,national,1708.3265073036725,0.551431579712079,-0.34609072813504294,44.89121036102176,Braço 2: Meridian Baseline
-causal_large,Meridian,x5_Video,national,13656.422309914009,0.7229937212781005,-2.7416523573554623,67.03613282703216,Braço 2: Meridian Baseline
-causal_large,Meridian,x6_Social-Paid,national,3604.3879256803416,1.381937902957628,-0.7531338086769759,81.86281364803773,Braço 2: Meridian Baseline
-causal_large,Meridian,x7_Social-Organic,national,-5763.825602468878,0.4692538690768319,-0.6173299416329814,46.84098858347554,Braço 2: Meridian Baseline
-causal_large,Meridian,x8_Display,national,-6323.42538043747,0.5356306908688959,-11.341988009378351,54.77773840748292,Braço 2: Meridian Baseline
-causal_large,Meridian,x9_Programmatic,national,-2488.7514782352323,0.27302787190679434,-1.57570659885751,28.55102508223227,Braço 2: Meridian Baseline
-causal_large,Meridian,x10_Native-Ads,national,-3394.178470683964,0.5890481284446157,-0.8096814407191149,62.35396427592742,Braço 2: Meridian Baseline
-causal_large,Meridian,x11_Paid-Search,national,-19713.37412232152,0.7166695918885254,-6.010661463941381,71.6014848024225,Braço 2: Meridian Baseline
-causal_large,Meridian,x12_Brand-Search,national,16027.958677550101,1.5486699214484363,-2.1882065403528888,120.16624180797155,Braço 2: Meridian Baseline
-causal_large,Meridian,x13_Shopping-Ads,national,-3821.7206136019263,0.4906261728145775,0.7119565382067862,48.743618261502434,Braço 2: Meridian Baseline
-causal_large,Meridian,x14_Retargeting,national,-13879.967743197429,0.5579706798571287,-34.381202729488614,56.27638989658291,Braço 2: Meridian Baseline
-causal_large,Meridian,x15_Affiliate,national,2970.2438872364737,0.26331816467984254,0.6980408142082604,36.37045404707436,Braço 2: Meridian Baseline
-causal_large,Meridian,x16_CTV,national,-10482.043652669052,1.0233964425002204,-5.682089704952078,95.93728830071315,Braço 2: Meridian Baseline
-causal_large,Meridian,x17_Streaming-Audio,national,-3826.951788760239,0.8404425550623835,-1.810770111621931,80.01776480239855,Braço 2: Meridian Baseline
-causal_large,Meridian,x18_Influencer,national,4781.464072416682,0.4462144022087781,-3.1081510784676034,49.07107751448171,Braço 2: Meridian Baseline
-causal_large,Meridian,x19_Email,national,869.2051457836625,0.7248819222971186,0.6525924647304187,55.81641170185607,Braço 2: Meridian Baseline
-causal_large,Meridian,x20_Push-Notif,national,1700.6835979357845,0.19134075783339283,0.40727099046586346,15.608653926387072,Braço 2: Meridian Baseline
-causal_large,Meridian,x21_Ghost-A,national,8284.823763425533,,,,Braço 2: Meridian Baseline
-causal_large,Meridian,x22_Ghost-B,national,10206.67417878371,,,,Braço 2: Meridian Baseline
-causal_large,PyMC-Marketing - nutpie,x1_TV,national,-13379.04933080992,1.433913851219246,-0.8539907324334697,93.60007381267478,Braço 3: PyMC + CD-NOTS
-causal_large,PyMC-Marketing - nutpie,x2_OOH,national,14142.633007537224,3.661889845484303,-11.27822212682238,2254.8939976965107,Braço 3: PyMC + CD-NOTS
-causal_large,PyMC-Marketing - nutpie,x3_Radio,national,13753.911836826677,4.225344754223661,-18.257061244630457,272.4197704302541,Braço 3: PyMC + CD-NOTS
-causal_large,PyMC-Marketing - nutpie,x4_Podcast,national,-741.7535926080374,1.4101053638592105,-7.802260033420529,127.76915100264515,Braço 3: PyMC + CD-NOTS
-causal_large,PyMC-Marketing - nutpie,x5_Video,national,44883.106704458296,2.270656652971571,-35.906029215833435,445.18118022206374,Braço 3: PyMC + CD-NOTS
-causal_large,PyMC-Marketing - nutpie,x6_Social-Paid,national,-1048.4126616840977,1.4924748921422433,-1.044805833393366,612.80344646733,Braço 3: PyMC + CD-NOTS
-causal_large,PyMC-Marketing - nutpie,x7_Social-Organic,national,-1247.7494065240048,0.9310415828088539,-5.366797818153763,114.300540448536,Braço 3: PyMC + CD-NOTS
-causal_large,PyMC-Marketing - nutpie,x8_Display,national,17570.11503120672,3.1129127103385246,-415.85795975678315,208.6409107038363,Braço 3: PyMC + CD-NOTS
-causal_large,PyMC-Marketing - nutpie,x9_Programmatic,national,-8356.79629799947,0.9151202781277488,-27.936018973061007,89.24491391531521,Braço 3: PyMC + CD-NOTS
-causal_large,PyMC-Marketing - nutpie,x10_Native-Ads,national,-1721.5224660461904,1.1395994297240097,-5.773373402244383,132.72946801843455,Braço 3: PyMC + CD-NOTS
-causal_large,PyMC-Marketing - nutpie,x11_Paid-Search,national,-26223.619546258014,0.9701625974203276,-11.847247623252501,93.72100206015087,Braço 3: PyMC + CD-NOTS
-causal_large,PyMC-Marketing - nutpie,x12_Brand-Search,national,-14353.274210830596,1.3118991480506925,-1.2878609277801436,313.8352009463081,Braço 3: PyMC + CD-NOTS
-causal_large,PyMC-Marketing - nutpie,x13_Shopping-Ads,national,-12455.241636944349,1.3469343510682483,-1.1709481703114042,99.53162066818498,Braço 3: PyMC + CD-NOTS
-causal_large,PyMC-Marketing - nutpie,x14_Retargeting,national,-23967.709289407565,0.9669846213518792,-105.26468761362598,96.1722267273744,Braço 3: PyMC + CD-NOTS
-causal_large,PyMC-Marketing - nutpie,x15_Affiliate,national,-11514.009570353002,1.067765108152296,-3.9652149810129966,94.7539541081116,Braço 3: PyMC + CD-NOTS
-causal_large,PyMC-Marketing - nutpie,x16_CTV,national,-6705.0551016618665,0.8422363094378614,-3.525769342342084,77.62301240676332,Braço 3: PyMC + CD-NOTS
-causal_large,PyMC-Marketing - nutpie,x17_Streaming-Audio,national,5712.5722509905445,2.596413140597458,-25.826057732943482,211.29360230226393,Braço 3: PyMC + CD-NOTS
-causal_large,PyMC-Marketing - nutpie,x18_Influencer,national,2478.0359666075283,1.000637538867274,-19.659167746413903,111.0742998441119,Braço 3: PyMC + CD-NOTS
-causal_large,PyMC-Marketing - nutpie,x19_Email,national,-6916.2606434428635,1.5837783348864016,-0.6584160472598195,99.58906838842296,Braço 3: PyMC + CD-NOTS
-causal_large,PyMC-Marketing - nutpie,x20_Push-Notif,national,33064.01795677113,3.3670494567195886,-182.5440011341392,394.66675729031385,Braço 3: PyMC + CD-NOTS
-causal_large,PyMC-Marketing - nutpie,x21_Ghost-A,national,416.9035258486682,,,,Braço 3: PyMC + CD-NOTS
-causal_large,PyMC-Marketing - nutpie,x22_Ghost-B,national,1155.6989081234992,,,,Braço 3: PyMC + CD-NOTS
-causal_large,Meridian,x1_TV,national,-3961.5242185646443,0.503278221942366,0.7716096685878324,76.748582007237,Braço 4: Meridian + CD-NOTS
-causal_large,Meridian,x2_OOH,national,4499.700040154218,1.7540101499616119,-1.8170148625766238,71.82098012541634,Braço 4: Meridian + CD-NOTS
-causal_large,Meridian,x3_Radio,national,3997.1671225123373,1.3683935348764078,-1.0197040649844675,128.83434429334952,Braço 4: Meridian + CD-NOTS
-causal_large,Meridian,x4_Podcast,national,5722.477353193534,1.4294836724373847,-8.045851697896254,83.24808629397323,Braço 4: Meridian + CD-NOTS
-causal_large,Meridian,x5_Video,national,-8402.062470691013,0.4354147011372986,-0.35706471669584783,44.02205661543339,Braço 4: Meridian + CD-NOTS
-causal_large,Meridian,x6_Social-Paid,national,4054.4996011055523,1.4502008915944222,-0.9306090760985171,84.40835339825733,Braço 4: Meridian + CD-NOTS
-causal_large,Meridian,x7_Social-Organic,national,7775.294720125398,0.6854105735717956,-2.4505196274346868,56.44957272477741,Braço 4: Meridian + CD-NOTS
-causal_large,Meridian,x8_Display,national,2209.116744384119,0.21786962804797252,-1.0419617239187176,17.720583158937348,Braço 4: Meridian + CD-NOTS
-causal_large,Meridian,x9_Programmatic,national,9212.092601002485,1.001753248120543,-33.67399970202541,100.94297607200997,Braço 4: Meridian + CD-NOTS
-causal_large,Meridian,x10_Native-Ads,national,1378.274689271867,0.4868655263232721,-0.23628505802066235,38.80283446100067,Braço 4: Meridian + CD-NOTS
-causal_large,Meridian,x11_Paid-Search,national,-15943.822083395175,0.5766781889750539,-3.539291703125371,59.04004234318624,Braço 4: Meridian + CD-NOTS
-causal_large,Meridian,x12_Brand-Search,national,17148.335306001725,1.6151753209295638,-2.4679119461684285,157.01137833846505,Braço 4: Meridian + CD-NOTS
-causal_large,Meridian,x13_Shopping-Ads,national,-3213.304607664974,0.4759878442421235,0.7288882620702087,48.13391475705025,Braço 4: Meridian + CD-NOTS
-causal_large,Meridian,x14_Retargeting,national,-2119.082612535245,0.11291691048075171,-0.4489980772826694,9.639793594635643,Braço 4: Meridian + CD-NOTS
-causal_large,Meridian,x15_Affiliate,national,5523.652752431528,0.7132883935631334,-1.2157304268257056,61.61395706741766,Braço 4: Meridian + CD-NOTS
-causal_large,Meridian,x16_CTV,national,-9203.703311527463,0.8899838434994102,-4.053458936147966,85.69249970087199,Braço 4: Meridian + CD-NOTS
-causal_large,Meridian,x17_Streaming-Audio,national,-1595.8092984649752,0.3380933083526453,0.5451351179476214,44.195450046681444,Braço 4: Meridian + CD-NOTS
-causal_large,Meridian,x18_Influencer,national,26747.66590394087,2.453965601479938,-123.2499379806017,269.7301402606591,Braço 4: Meridian + CD-NOTS
-causal_large,Meridian,x19_Email,national,2206.707725042274,0.8583925020353531,0.5128344979036796,597.0622065895382,Braço 4: Meridian + CD-NOTS
-causal_large,Meridian,x20_Push-Notif,national,3768.222222039037,0.33249681582627133,-0.7898481407701716,31.173059830497785,Braço 4: Meridian + CD-NOTS
-causal_large,Meridian,x21_Ghost-A,national,8778.823102957927,,,,Braço 4: Meridian + CD-NOTS
-causal_large,Meridian,x22_Ghost-B,national,16218.964682358961,,,,Braço 4: Meridian + CD-NOTS
+Dataset     , Model                  , Channel            , Region  , Bias               , SRMSE              , R²                  , MAPE (%)            , Braço
+causal_large, PyMC-Marketing - nutpie, x1_TV              , national, -13019.089779118322, 1.4150627523659154 , -0.8055637963509112 ,   90.79466615927673 , Braço 1: PyMC Baseline
+causal_large, PyMC-Marketing - nutpie, x2_OOH             , national, 24515.993315986187 , 5.45246455794784   , -26.22141123486037  , 3307.2017720117665  , Braço 1: PyMC Baseline
+causal_large, PyMC-Marketing - nutpie, x3_Radio           , national, 8698.897874905573  , 2.9804888172680286 , -8.58165888782986   ,  172.80927850242384 , Braço 1: PyMC Baseline
+causal_large, PyMC-Marketing - nutpie, x4_Podcast         , national, -2181.292719446579 , 1.1476418003296758 , -4.830472901143908  ,  106.51533630570738 , Braço 1: PyMC Baseline
+causal_large, PyMC-Marketing - nutpie, x5_Video           , national, 34944.25852429831  , 1.7927347891225476 , -22.00522447108583  ,  359.60752998895043 , Braço 1: PyMC Baseline
+causal_large, PyMC-Marketing - nutpie, x6_Social-Paid     , national, 4079.1556603369363 , 2.2286380079743324 , -3.559498463165374  ,  999.0685928899275  , Braço 1: PyMC Baseline
+causal_large, PyMC-Marketing - nutpie, x7_Social-Organic  , national, 1182.9960240106452 , 1.0686208960074217 , -7.38745545810254   ,  128.38274194930128 , Braço 1: PyMC Baseline
+causal_large, PyMC-Marketing - nutpie, x8_Display         , national, 17617.062576142467 , 3.1544948425506463 , -427.0690772678303  ,  209.3338925291501  , Braço 1: PyMC Baseline
+causal_large, PyMC-Marketing - nutpie, x9_Programmatic    , national, -7780.657595689704 , 0.8565324279073873 , -24.349537620774218 ,   82.7381468179818  , Braço 1: PyMC Baseline
+causal_large, PyMC-Marketing - nutpie, x10_Native-Ads     , national, -902.3078100824276 , 1.3024936244488863 , -7.84813588894399   ,  150.49132845366282 , Braço 1: PyMC Baseline
+causal_large, PyMC-Marketing - nutpie, x11_Paid-Search    , national, -25934.244899052665, 0.9616505892610322 , -11.622798352917387 ,   92.78052948871105 , Braço 1: PyMC Baseline
+causal_large, PyMC-Marketing - nutpie, x12_Brand-Search   , national, -13994.276488956217, 1.293986394774428  , -1.2258102682412955 ,  700.2524087975537  , Braço 1: PyMC Baseline
+causal_large, PyMC-Marketing - nutpie, x13_Shopping-Ads   , national, -12383.31941523661 , 1.3387772600718322 , -1.1447330846524006 ,   99.04520142182358 , Braço 1: PyMC Baseline
+causal_large, PyMC-Marketing - nutpie, x14_Retargeting    , national, -23747.08070152065 , 0.9582966525826514 , -103.36377447167808 ,   95.27537324722127 , Braço 1: PyMC Baseline
+causal_large, PyMC-Marketing - nutpie, x15_Affiliate      , national, -11368.893696903157, 1.058789988065863  , -3.882095367698698  ,   94.07349625295257 , Braço 1: PyMC Baseline
+causal_large, PyMC-Marketing - nutpie, x16_CTV            , national, -5158.703415848925 , 0.9091247237605338 , -4.273165875330411  ,   82.09655166140222 , Braço 1: PyMC Baseline
+causal_large, PyMC-Marketing - nutpie, x17_Streaming-Audio, national, 2827.523799522017  , 1.7744289569943832 , -11.529290832015542 ,  151.72144510714247 , Braço 1: PyMC Baseline
+causal_large, PyMC-Marketing - nutpie, x18_Influencer     , national, 36019.94868300796  , 4.298095868973562  , -380.1636136166777  ,  443.79637555895675 , Braço 1: PyMC Baseline
+causal_large, PyMC-Marketing - nutpie, x19_Email          , national, -6906.056925252643 , 1.5818886652786104 , -0.6544609624270965 ,   99.01539147883271 , Braço 1: PyMC Baseline
+causal_large, PyMC-Marketing - nutpie, x20_Push-Notif     , national, -11626.23657156914 , 0.9372695578619812 , -13.222312822348457 ,   89.52173716167827 , Braço 1: PyMC Baseline
+causal_large, PyMC-Marketing - nutpie, x21_Ghost-A        , national, 764.8763558215256  ,                    ,                     ,                     , Braço 1: PyMC Baseline
+causal_large, PyMC-Marketing - nutpie, x22_Ghost-B        , national, 1641.523283599849  ,                    ,                     ,                     , Braço 1: PyMC Baseline
+causal_large, Meridian               , x1_TV              , national, -4242.3322471886795, 0.5038997944514727 , 0.7710451743993663  ,   75.83453361693647 , Braço 2: Meridian Baseline
+causal_large, Meridian               , x2_OOH             , national, 4185.011814120357  , 1.6364346851979183 , -1.4520102769470862 ,   86.45368438285941 , Braço 2: Meridian Baseline
+causal_large, Meridian               , x3_Radio           , national, 3619.64384815942   , 1.281902518565818  , -0.7724570241664972 ,  107.95648385789374 , Braço 2: Meridian Baseline
+causal_large, Meridian               , x4_Podcast         , national, 1708.3265073036725 , 0.551431579712079  , -0.34609072813504294,   44.89121036102176 , Braço 2: Meridian Baseline
+causal_large, Meridian               , x5_Video           , national, 13656.422309914009 , 0.7229937212781005 , -2.7416523573554623 ,   67.03613282703216 , Braço 2: Meridian Baseline
+causal_large, Meridian               , x6_Social-Paid     , national, 3604.3879256803416 , 1.381937902957628  , -0.7531338086769759 ,   81.86281364803773 , Braço 2: Meridian Baseline
+causal_large, Meridian               , x7_Social-Organic  , national, -5763.825602468878 , 0.4692538690768319 , -0.6173299416329814 ,   46.84098858347554 , Braço 2: Meridian Baseline
+causal_large, Meridian               , x8_Display         , national, -6323.42538043747  , 0.5356306908688959 , -11.341988009378351 ,   54.77773840748292 , Braço 2: Meridian Baseline
+causal_large, Meridian               , x9_Programmatic    , national, -2488.7514782352323, 0.27302787190679434, -1.57570659885751   ,   28.55102508223227 , Braço 2: Meridian Baseline
+causal_large, Meridian               , x10_Native-Ads     , national, -3394.178470683964 , 0.5890481284446157 , -0.8096814407191149 ,   62.35396427592742 , Braço 2: Meridian Baseline
+causal_large, Meridian               , x11_Paid-Search    , national, -19713.37412232152 , 0.7166695918885254 , -6.010661463941381  ,   71.6014848024225  , Braço 2: Meridian Baseline
+causal_large, Meridian               , x12_Brand-Search   , national, 16027.958677550101 , 1.5486699214484363 , -2.1882065403528888 ,  120.16624180797155 , Braço 2: Meridian Baseline
+causal_large, Meridian               , x13_Shopping-Ads   , national, -3821.7206136019263, 0.4906261728145775 , 0.7119565382067862  ,   48.743618261502434, Braço 2: Meridian Baseline
+causal_large, Meridian               , x14_Retargeting    , national, -13879.967743197429, 0.5579706798571287 , -34.381202729488614 ,   56.27638989658291 , Braço 2: Meridian Baseline
+causal_large, Meridian               , x15_Affiliate      , national, 2970.2438872364737 , 0.26331816467984254, 0.6980408142082604  ,   36.37045404707436 , Braço 2: Meridian Baseline
+causal_large, Meridian               , x16_CTV            , national, -10482.043652669052, 1.0233964425002204 , -5.682089704952078  ,   95.93728830071315 , Braço 2: Meridian Baseline
+causal_large, Meridian               , x17_Streaming-Audio, national, -3826.951788760239 , 0.8404425550623835 , -1.810770111621931  ,   80.01776480239855 , Braço 2: Meridian Baseline
+causal_large, Meridian               , x18_Influencer     , national, 4781.464072416682  , 0.4462144022087781 , -3.1081510784676034 ,   49.07107751448171 , Braço 2: Meridian Baseline
+causal_large, Meridian               , x19_Email          , national, 869.2051457836625  , 0.7248819222971186 , 0.6525924647304187  ,   55.81641170185607 , Braço 2: Meridian Baseline
+causal_large, Meridian               , x20_Push-Notif     , national, 1700.6835979357845 , 0.19134075783339283, 0.40727099046586346 ,   15.608653926387072, Braço 2: Meridian Baseline
+causal_large, Meridian               , x21_Ghost-A        , national, 8284.823763425533  ,                    ,                     ,                     , Braço 2: Meridian Baseline
+causal_large, Meridian               , x22_Ghost-B        , national, 10206.67417878371  ,                    ,                     ,                     , Braço 2: Meridian Baseline
+causal_large, PyMC-Marketing - nutpie, x1_TV              , national, -13379.04933080992 , 1.433913851219246  , -0.8539907324334697 ,   93.60007381267478 , Braço 3: PyMC + CD-NOTS
+causal_large, PyMC-Marketing - nutpie, x2_OOH             , national, 14142.633007537224 , 3.661889845484303  , -11.27822212682238  , 2254.8939976965107  , Braço 3: PyMC + CD-NOTS
+causal_large, PyMC-Marketing - nutpie, x3_Radio           , national, 13753.911836826677 , 4.225344754223661  , -18.257061244630457 ,  272.4197704302541  , Braço 3: PyMC + CD-NOTS
+causal_large, PyMC-Marketing - nutpie, x4_Podcast         , national, -741.7535926080374 , 1.4101053638592105 , -7.802260033420529  ,  127.76915100264515 , Braço 3: PyMC + CD-NOTS
+causal_large, PyMC-Marketing - nutpie, x5_Video           , national, 44883.106704458296 , 2.270656652971571  , -35.906029215833435 ,  445.18118022206374 , Braço 3: PyMC + CD-NOTS
+causal_large, PyMC-Marketing - nutpie, x6_Social-Paid     , national, -1048.4126616840977, 1.4924748921422433 , -1.044805833393366  ,  612.80344646733    , Braço 3: PyMC + CD-NOTS
+causal_large, PyMC-Marketing - nutpie, x7_Social-Organic  , national, -1247.7494065240048, 0.9310415828088539 , -5.366797818153763  ,  114.300540448536   , Braço 3: PyMC + CD-NOTS
+causal_large, PyMC-Marketing - nutpie, x8_Display         , national, 17570.11503120672  , 3.1129127103385246 , -415.85795975678315 ,  208.6409107038363  , Braço 3: PyMC + CD-NOTS
+causal_large, PyMC-Marketing - nutpie, x9_Programmatic    , national, -8356.79629799947  , 0.9151202781277488 , -27.936018973061007 ,   89.24491391531521 , Braço 3: PyMC + CD-NOTS
+causal_large, PyMC-Marketing - nutpie, x10_Native-Ads     , national, -1721.5224660461904, 1.1395994297240097 , -5.773373402244383  ,  132.72946801843455 , Braço 3: PyMC + CD-NOTS
+causal_large, PyMC-Marketing - nutpie, x11_Paid-Search    , national, -26223.619546258014, 0.9701625974203276 , -11.847247623252501 ,   93.72100206015087 , Braço 3: PyMC + CD-NOTS
+causal_large, PyMC-Marketing - nutpie, x12_Brand-Search   , national, -14353.274210830596, 1.3118991480506925 , -1.2878609277801436 ,  313.8352009463081  , Braço 3: PyMC + CD-NOTS
+causal_large, PyMC-Marketing - nutpie, x13_Shopping-Ads   , national, -12455.241636944349, 1.3469343510682483 , -1.1709481703114042 ,   99.53162066818498 , Braço 3: PyMC + CD-NOTS
+causal_large, PyMC-Marketing - nutpie, x14_Retargeting    , national, -23967.709289407565, 0.9669846213518792 , -105.26468761362598 ,   96.1722267273744  , Braço 3: PyMC + CD-NOTS
+causal_large, PyMC-Marketing - nutpie, x15_Affiliate      , national, -11514.009570353002, 1.067765108152296  , -3.9652149810129966 ,   94.7539541081116  , Braço 3: PyMC + CD-NOTS
+causal_large, PyMC-Marketing - nutpie, x16_CTV            , national, -6705.0551016618665, 0.8422363094378614 , -3.525769342342084  ,   77.62301240676332 , Braço 3: PyMC + CD-NOTS
+causal_large, PyMC-Marketing - nutpie, x17_Streaming-Audio, national, 5712.5722509905445 , 2.596413140597458  , -25.826057732943482 ,  211.29360230226393 , Braço 3: PyMC + CD-NOTS
+causal_large, PyMC-Marketing - nutpie, x18_Influencer     , national, 2478.0359666075283 , 1.000637538867274  , -19.659167746413903 ,  111.0742998441119  , Braço 3: PyMC + CD-NOTS
+causal_large, PyMC-Marketing - nutpie, x19_Email          , national, -6916.2606434428635, 1.5837783348864016 , -0.6584160472598195 ,   99.58906838842296 , Braço 3: PyMC + CD-NOTS
+causal_large, PyMC-Marketing - nutpie, x20_Push-Notif     , national, 33064.01795677113  , 3.3670494567195886 , -182.5440011341392  ,  394.66675729031385 , Braço 3: PyMC + CD-NOTS
+causal_large, PyMC-Marketing - nutpie, x21_Ghost-A        , national, 416.9035258486682  ,                    ,                     ,                     , Braço 3: PyMC + CD-NOTS
+causal_large, PyMC-Marketing - nutpie, x22_Ghost-B        , national, 1155.6989081234992 ,                    ,                     ,                     , Braço 3: PyMC + CD-NOTS
+causal_large, Meridian               , x1_TV              , national, -3961.5242185646443, 0.503278221942366  , 0.7716096685878324  ,   76.748582007237   , Braço 4: Meridian + CD-NOTS
+causal_large, Meridian               , x2_OOH             , national, 4499.700040154218  , 1.7540101499616119 , -1.8170148625766238 ,   71.82098012541634 , Braço 4: Meridian + CD-NOTS
+causal_large, Meridian               , x3_Radio           , national, 3997.1671225123373 , 1.3683935348764078 , -1.0197040649844675 ,  128.83434429334952 , Braço 4: Meridian + CD-NOTS
+causal_large, Meridian               , x4_Podcast         , national, 5722.477353193534  , 1.4294836724373847 , -8.045851697896254  ,   83.24808629397323 , Braço 4: Meridian + CD-NOTS
+causal_large, Meridian               , x5_Video           , national, -8402.062470691013 , 0.4354147011372986 , -0.35706471669584783,   44.02205661543339 , Braço 4: Meridian + CD-NOTS
+causal_large, Meridian               , x6_Social-Paid     , national, 4054.4996011055523 , 1.4502008915944222 , -0.9306090760985171 ,   84.40835339825733 , Braço 4: Meridian + CD-NOTS
+causal_large, Meridian               , x7_Social-Organic  , national, 7775.294720125398  , 0.6854105735717956 , -2.4505196274346868 ,   56.44957272477741 , Braço 4: Meridian + CD-NOTS
+causal_large, Meridian               , x8_Display         , national, 2209.116744384119  , 0.21786962804797252, -1.0419617239187176 ,   17.720583158937348, Braço 4: Meridian + CD-NOTS
+causal_large, Meridian               , x9_Programmatic    , national, 9212.092601002485  , 1.001753248120543  , -33.67399970202541  ,  100.94297607200997 , Braço 4: Meridian + CD-NOTS
+causal_large, Meridian               , x10_Native-Ads     , national, 1378.274689271867  , 0.4868655263232721 , -0.23628505802066235,   38.80283446100067 , Braço 4: Meridian + CD-NOTS
+causal_large, Meridian               , x11_Paid-Search    , national, -15943.822083395175, 0.5766781889750539 , -3.539291703125371  ,   59.04004234318624 , Braço 4: Meridian + CD-NOTS
+causal_large, Meridian               , x12_Brand-Search   , national, 17148.335306001725 , 1.6151753209295638 , -2.4679119461684285 ,  157.01137833846505 , Braço 4: Meridian + CD-NOTS
+causal_large, Meridian               , x13_Shopping-Ads   , national, -3213.304607664974 , 0.4759878442421235 , 0.7288882620702087  ,   48.13391475705025 , Braço 4: Meridian + CD-NOTS
+causal_large, Meridian               , x14_Retargeting    , national, -2119.082612535245 , 0.11291691048075171, -0.4489980772826694 ,    9.639793594635643, Braço 4: Meridian + CD-NOTS
+causal_large, Meridian               , x15_Affiliate      , national, 5523.652752431528  , 0.7132883935631334 , -1.2157304268257056 ,   61.61395706741766 , Braço 4: Meridian + CD-NOTS
+causal_large, Meridian               , x16_CTV            , national, -9203.703311527463 , 0.8899838434994102 , -4.053458936147966  ,   85.69249970087199 , Braço 4: Meridian + CD-NOTS
+causal_large, Meridian               , x17_Streaming-Audio, national, -1595.8092984649752, 0.3380933083526453 , 0.5451351179476214  ,   44.195450046681444, Braço 4: Meridian + CD-NOTS
+causal_large, Meridian               , x18_Influencer     , national, 26747.66590394087  , 2.453965601479938  , -123.2499379806017  ,  269.7301402606591  , Braço 4: Meridian + CD-NOTS
+causal_large, Meridian               , x19_Email          , national, 2206.707725042274  , 0.8583925020353531 , 0.5128344979036796  ,  597.0622065895382  , Braço 4: Meridian + CD-NOTS
+causal_large, Meridian               , x20_Push-Notif     , national, 3768.222222039037  , 0.33249681582627133, -0.7898481407701716 ,   31.173059830497785, Braço 4: Meridian + CD-NOTS
+causal_large, Meridian               , x21_Ghost-A        , national, 8778.823102957927  ,                    ,                     ,                     , Braço 4: Meridian + CD-NOTS
+causal_large, Meridian               , x22_Ghost-B        , national, 16218.964682358961 ,                    ,                     ,                     , Braço 4: Meridian + CD-NOTS

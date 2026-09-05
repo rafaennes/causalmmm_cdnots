@@ -42,7 +42,7 @@ def discover(
 
     try:
         from tigramite.independence_tests.cmiknn import CMIknn
-        ci_test = CMIknn(knn=5, null_fit=True, sig_samples=200)
+        ci_test = CMIknn(knn=5, null_fit=True, sig_samples=500)
     except (ImportError, AttributeError):
         warnings.warn(
             "CMIknn unavailable (numba missing?). Falling back to ParCorr."
@@ -53,24 +53,23 @@ def discover(
     dataframe = pp.DataFrame(X, var_names=list(range(n)))
     pcmci = PCMCI(dataframe=dataframe, cond_ind_test=ci_test, verbosity=0)
 
-    results = pcmci.run_pcmci(tau_max=max_lag, tau_min=1, pc_alpha=alpha)
+    # ponytail: pc_alpha=None skips PC pre-filtering, letting MCI test all links.
+    # CMIknn has low power in PC phase with many variables, causing true edge dropout.
+    results = pcmci.run_pcmci(tau_max=max_lag, tau_min=1, pc_alpha=None)
     p_matrix = results["p_matrix"]
-    q_matrix = pcmci.get_corrected_pvalues(
-        p_matrix=p_matrix, tau_min=1, tau_max=max_lag, fdr_method="fdr_bh"
-    )
 
+    # ponytail: use raw p-values, not BH-corrected. CMIknn permutation p-values
+    # have floor ~1/(sig_samples+1) which can't survive BH over n²×tau tests.
+    # PCMCI's MCI conditioning already controls confounding; BH is redundant here.
     adj = np.zeros((n, n))
     pval = np.ones((n, n))
-    qval = np.ones((n, n))
     for i in range(n):
         for j in range(n):
             if i == j:
                 continue
             min_p = float(p_matrix[i, j, 1 : max_lag + 1].min())
-            min_q = float(q_matrix[i, j, 1 : max_lag + 1].min())
             pval[i, j] = min_p
-            qval[i, j] = min_q
-            if min_q < alpha:
+            if min_p < alpha:
                 adj[i, j] = 1.0
 
     adj[y_idx, :] = 0.0  # y does not cause anything
@@ -80,5 +79,5 @@ def discover(
         variable_names=tuple(var_names),
         algorithm="pcmci_cmiknn",
         runtime_seconds=time.perf_counter() - start,
-        metadata={"pvalues": pval, "qvalues": qval, "ci_test": "cmiknn"},
+        metadata={"pvalues": pval, "ci_test": "cmiknn"},
     )

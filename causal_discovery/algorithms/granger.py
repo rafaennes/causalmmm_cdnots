@@ -44,7 +44,13 @@ def discover(
             try:
                 # grangercausalitytests tests: does X[:,i] Granger-cause X[:,j]?
                 test_data = np.column_stack([X[:, j], X[:, i]])
-                results = grangercausalitytests(test_data, maxlag=max_lag, verbose=False)
+                import io, sys as _sys
+                _old = _sys.stdout
+                _sys.stdout = io.StringIO()  # ponytail: suppress statsmodels print
+                try:
+                    results = grangercausalitytests(test_data, maxlag=max_lag)
+                finally:
+                    _sys.stdout = _old
                 pval[i, j] = min(
                     results[lag][0]["ssr_ftest"][1] for lag in range(1, max_lag + 1)
                 )

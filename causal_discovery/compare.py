@@ -154,70 +154,127 @@ _PRESET_SPECS: dict[str, tuple[int, int, int, list]] = {
 def _synthetic_preset(
     preset_name: str,
 ) -> tuple[pd.DataFrame, list[str], np.ndarray, tuple[str, ...]]:
-    """Minimal built-in synthetic MMM preset (fallback when cdnots unavailable).
+    """Synthetic MMM preset with realistic marketing data characteristics.
 
-    Generates nonstationary time series with adstock-like carryover and
-    a known ground truth causal graph. Sufficient for smoke tests and
-    algorithm comparison when the pixi environment is not available.
+    DGP mirrors real marketing data:
+      1. Weekly spend innovations with per-channel regime shifts (budget changes)
+      2. Inter-channel causal spillover at lag 1 + lag 2 (e.g., TV → Search)
+      3. Geometric adstock (carryover decay) per channel
+      4. Diminishing returns via log(1+x) saturation
+      5. Sales (y) driven by saturated adstocked spend at lag 1 + lag 2
+      6. Quarterly seasonality in y
+      7. Controls (macro factors) with weak effect
+
+    Causal structure is injected at the innovation level (before adstock)
+    so the signal propagates through the full marketing pipeline. Each
+    channel has independent regime timing to avoid shared-trend confounding.
+    Coefficients are calibrated for detectable SNR at T=104.
     """
     if preset_name not in _PRESET_SPECS:
-        # Default to small_business for unknown presets
         n_ch, n_co, T, edges = 4, 1, 104, []
     else:
         n_ch, n_co, T, edges = _PRESET_SPECS[preset_name]
 
     rng = np.random.default_rng(2025)
-    t = np.arange(T)
 
-    # Generate channel spend with mild nonstationarity (two regimes)
-    mid = T // 2
-    spend = {}
+    # === Step 1: Generate independent weekly spend innovations ===
+    # Each channel has its own base level, noise, and regime shift timing
+    innovations = {}
     for i in range(n_ch):
-        base = rng.uniform(500, 2000)
-        seg1 = rng.normal(base, base * 0.1, mid)
-        seg2 = rng.normal(base * rng.uniform(1.2, 1.8), base * 0.15, T - mid)
-        adstock = np.concatenate([seg1, seg2])
-        # Simple geometric adstock
-        decay = rng.uniform(0.3, 0.7)
-        for tt in range(1, T):
-            adstock[tt] += decay * adstock[tt - 1]
-        adstock = np.clip(adstock, 0, None)
-        spend[f"x{i+1}"] = adstock
+        base_spend = rng.uniform(500, 2000)         # weekly base spend ($)
+        noise_std = base_spend * 0.15                # 15% week-to-week variation
+        shift_t = rng.integers(T // 4, 3 * T // 4)  # channel-specific breakpoint
+        shift_dir = rng.choice([-1, 1])
+        shift_pct = rng.uniform(0.3, 0.6)           # 30-60% budget change
 
-    # Apply inter-channel causal edges
+        innov = np.empty(T)
+        for t in range(T):
+            mu = base_spend * (1 + shift_dir * shift_pct) if t >= shift_t else base_spend
+            std = noise_std * rng.uniform(1.2, 1.5) if t >= shift_t else noise_std
+            innov[t] = rng.normal(mu, std)
+        innov = np.clip(innov, 50, None)  # floor: min $50/week
+        innovations[i] = innov
+
+    # === Step 2: Inter-channel causal effects at lag 1 + lag 2 ===
+    # Applied to innovations (budget decisions), before adstock.
+    # "TV spend this week causes search spend to increase next week"
+    # Coefficients are proportional: a fraction of src spend spills into tgt.
     for src, tgt in edges:
-        coef = rng.uniform(0.2, 0.5)
-        spend[f"x{tgt+1}"] = spend[f"x{tgt+1}"] + coef * spend[f"x{src+1}"]
+        spillover_lag1 = rng.uniform(0.15, 0.25)  # 15-25% of src spills at lag 1
+        spillover_lag2 = rng.uniform(0.05, 0.12)   # 5-12% at lag 2
+        innovations[tgt][1:] += spillover_lag1 * innovations[src][:-1]
+        innovations[tgt][2:] += spillover_lag2 * innovations[src][:-2]
 
-    # Generate controls
+    # === Step 3: Geometric adstock (carryover) ===
+    spend = {}
+    adstock_decays = {}
+    for i in range(n_ch):
+        decay = rng.uniform(0.3, 0.6)  # typical weekly decay rates
+        adstock_decays[i] = decay
+        x = innovations[i].copy()
+        for t in range(1, T):
+            x[t] = x[t] + decay * x[t - 1]
+        spend[f"x{i+1}"] = x
+
+    # === Step 4: Saturation (diminishing returns) ===
+    # log(1 + x/K) where K = median spend — standard MMM transform.
+    # This compresses the signal, so we calibrate channel→y coefficients
+    # to compensate.
+    saturated = {}
+    for i in range(n_ch):
+        x = spend[f"x{i+1}"]
+        K = np.median(x)
+        saturated[i] = np.log1p(x / K)
+
+    # === Step 5: Controls ===
     controls = {}
     for j in range(n_co):
         controls[f"c{j+1}"] = rng.normal(0, 1, T)
 
-    # Generate y from channels (Hill saturation simplified as sqrt)
-    effectiveness = rng.uniform(0.1, 0.5, n_ch)
-    y = rng.normal(5000, 500, T)
+    # === Step 6: Generate y (sales) ===
+    # y(t) = intercept + seasonality + sum_i[beta1_i * sat_i(t-1) + beta2_i * sat_i(t-2)]
+    #         + control_effects + noise
+    #
+    # Calibration: compute the std of the saturated signals to set betas
+    # so that the total channel contribution has std ≈ 2-3x the noise std.
+    sat_stds = [saturated[i].std() for i in range(n_ch)]
+    noise_std_y = 500  # weekly sales noise ($)
+    # Target: each channel contributes ~(noise_std_y * 2.0) / n_ch in std.
+    # Total channel signal ~ 2× noise — strong enough to survive log
+    # saturation compression and remain detectable at T=104 with
+    # nonlinear CI tests. Per-channel SNR ≈ 0.5 for 4 channels.
+    target_per_ch = noise_std_y * 2.0 / max(n_ch, 1)
+
+    beta_lag1 = np.array([target_per_ch / (s + 1e-8) * rng.uniform(0.7, 1.0)
+                          for s in sat_stds])
+    beta_lag2 = np.array([target_per_ch / (s + 1e-8) * rng.uniform(0.25, 0.45)
+                          for s in sat_stds])
+
+    base_sales = rng.uniform(8000, 15000)
+    # Quarterly seasonality
+    season = 0.03 * base_sales * np.sin(2 * np.pi * np.arange(T) / 13)
+
+    y = np.full(T, base_sales) + season + rng.normal(0, noise_std_y, T)
     for i in range(n_ch):
-        x = spend[f"x{i+1}"]
-        y += effectiveness[i] * np.sqrt(np.clip(x, 0, None))
+        s = saturated[i]
+        y[1:] += beta_lag1[i] * s[:-1]
+        y[2:] += beta_lag2[i] * s[:-2]
     for j in range(n_co):
-        y += rng.uniform(-0.1, 0.1) * controls[f"c{j+1}"]
+        y += rng.uniform(-50, 50) * controls[f"c{j+1}"]
 
+    # === Build DataFrame ===
     data = pd.DataFrame({**spend, **controls, "y": y})
-
     channel_cols = [f"x{i+1}" for i in range(n_ch)]
     control_cols = [f"c{j+1}" for j in range(n_co)]
     var_names = channel_cols + control_cols + ["y"]
 
-    # Ground truth adjacency (channels+y only; controls excluded from true_adj)
+    # === Ground truth adjacency ===
     truth_var_names = tuple(channel_cols + ["y"])
     n_truth = len(truth_var_names)
     true_adj = np.zeros((n_truth, n_truth))
     y_truth_idx = n_truth - 1
-    # All channels cause y
     for i in range(n_ch):
         true_adj[i, y_truth_idx] = 1.0
-    # Inter-channel edges
     for src, tgt in edges:
         true_adj[src, tgt] = 1.0
 

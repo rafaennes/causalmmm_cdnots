@@ -27,7 +27,7 @@ def discover(
     var_names: list[str],
     alpha: float = 0.05,   # accepted for uniform interface; unused (score-based)
     max_lag: int = 2,
-    w_threshold: float = 0.1,
+    w_threshold: float = 0.05,
     **kwargs,
 ) -> CausalGraph:
     """Score-based time-series causal discovery via VAR coefficient thresholding.
