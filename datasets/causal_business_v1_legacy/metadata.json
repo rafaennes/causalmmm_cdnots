@@ -1,0 +1,78 @@
+{
+  "preset": "causal_business",
+  "spec_version": "v1_legacy",
+  "seed": 2025,
+  "n_periods": 156,
+  "n_channels": 8,
+  "n_controls": 1,
+  "n_ghosts": 2,
+  "n_true_edges": 9,
+  "channel_names": [
+    "x1_Search-Ads",
+    "x2_Brand-Search",
+    "x3_TV",
+    "x4_Video",
+    "x5_Social-Media",
+    "x6_Display-Ads",
+    "x7_Ghost-A",
+    "x8_Ghost-B"
+  ],
+  "control_names": [
+    "c1"
+  ],
+  "ghost_names": [
+    "x7_Ghost-A",
+    "x8_Ghost-B"
+  ],
+  "variable_names": [
+    "x1_Search-Ads",
+    "x2_Brand-Search",
+    "x3_TV",
+    "x4_Video",
+    "x5_Social-Media",
+    "x6_Display-Ads",
+    "x7_Ghost-A",
+    "x8_Ghost-B",
+    "y"
+  ],
+  "max_abs_correlation": 0.646,
+  "pct_zero_spend": 0.246,
+  "true_edges": [
+    {
+      "source": "x1_Search-Ads",
+      "target": "y"
+    },
+    {
+      "source": "x2_Brand-Search",
+      "target": "y"
+    },
+    {
+      "source": "x3_TV",
+      "target": "x1_Search-Ads"
+    },
+    {
+      "source": "x3_TV",
+      "target": "y"
+    },
+    {
+      "source": "x4_Video",
+      "target": "x5_Social-Media"
+    },
+    {
+      "source": "x4_Video",
+      "target": "y"
+    },
+    {
+      "source": "x5_Social-Media",
+      "target": "x2_Brand-Search"
+    },
+    {
+      "source": "x5_Social-Media",
+      "target": "y"
+    },
+    {
+      "source": "x6_Display-Ads",
+      "target": "y"
+    }
+  ]
+}

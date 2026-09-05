@@ -203,6 +203,14 @@ def run_benchmark(
                 print(f"  SKIP {task_name} seed={seed}: {exc}")
                 continue
 
+            # ponytail: persist generated data + ground truth for reproducibility
+            data_dir = output_dir / "data" / f"{task_name}_seed{seed}_{spec_version}"
+            data_dir.mkdir(parents=True, exist_ok=True)
+            data.to_csv(data_dir / "data.csv", index=False)
+            np.savetxt(data_dir / "true_adj.csv", true_adj, delimiter=",", fmt="%.0f")
+            pd.Series(truth_vars).to_csv(data_dir / "variable_names.csv", index=False, header=False)
+            pd.Series(ghost_names).to_csv(data_dir / "ghost_names.csv", index=False, header=False)
+
             # --- Diagnostics ---
             ch_data = data[[c for c in ch_cols if c in data.columns]].values
             col_diag = collinearity_diagnostics(ch_data, ch_cols)

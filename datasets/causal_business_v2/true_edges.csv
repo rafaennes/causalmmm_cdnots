@@ -1,0 +1,10 @@
+source,target
+x1_Search-Ads,y
+x2_Brand-Search,y
+x3_TV,x1_Search-Ads
+x3_TV,y
+x4_Video,x5_Social-Media
+x4_Video,y
+x5_Social-Media,x2_Brand-Search
+x5_Social-Media,y
+x6_Display-Ads,y

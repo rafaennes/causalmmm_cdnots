@@ -1,0 +1,179 @@
+{
+  "preset": "causal_large",
+  "spec_version": "v1_legacy",
+  "seed": 2025,
+  "n_periods": 208,
+  "n_channels": 22,
+  "n_controls": 10,
+  "n_ghosts": 2,
+  "n_true_edges": 25,
+  "channel_names": [
+    "x10_Native-Ads",
+    "x11_Paid-Search",
+    "x12_Brand-Search",
+    "x13_Shopping-Ads",
+    "x14_Retargeting",
+    "x15_Affiliate",
+    "x16_CTV",
+    "x17_Streaming-Audio",
+    "x18_Influencer",
+    "x19_Email",
+    "x1_TV",
+    "x20_Push-Notif",
+    "x21_Ghost-A",
+    "x22_Ghost-B",
+    "x2_OOH",
+    "x3_Radio",
+    "x4_Podcast",
+    "x5_Video",
+    "x6_Social-Paid",
+    "x7_Social-Organic",
+    "x8_Display",
+    "x9_Programmatic"
+  ],
+  "control_names": [
+    "c1",
+    "c10",
+    "c2",
+    "c3",
+    "c4",
+    "c5",
+    "c6",
+    "c7",
+    "c8",
+    "c9"
+  ],
+  "ghost_names": [
+    "x21_Ghost-A",
+    "x22_Ghost-B"
+  ],
+  "variable_names": [
+    "x1_TV",
+    "x2_OOH",
+    "x3_Radio",
+    "x4_Podcast",
+    "x5_Video",
+    "x6_Social-Paid",
+    "x7_Social-Organic",
+    "x8_Display",
+    "x9_Programmatic",
+    "x10_Native-Ads",
+    "x11_Paid-Search",
+    "x12_Brand-Search",
+    "x13_Shopping-Ads",
+    "x14_Retargeting",
+    "x15_Affiliate",
+    "x16_CTV",
+    "x17_Streaming-Audio",
+    "x18_Influencer",
+    "x19_Email",
+    "x20_Push-Notif",
+    "x21_Ghost-A",
+    "x22_Ghost-B",
+    "y"
+  ],
+  "max_abs_correlation": 0.766,
+  "pct_zero_spend": 0.305,
+  "true_edges": [
+    {
+      "source": "x1_TV",
+      "target": "x11_Paid-Search"
+    },
+    {
+      "source": "x1_TV",
+      "target": "y"
+    },
+    {
+      "source": "x2_OOH",
+      "target": "x12_Brand-Search"
+    },
+    {
+      "source": "x2_OOH",
+      "target": "y"
+    },
+    {
+      "source": "x3_Radio",
+      "target": "y"
+    },
+    {
+      "source": "x4_Podcast",
+      "target": "y"
+    },
+    {
+      "source": "x5_Video",
+      "target": "x7_Social-Organic"
+    },
+    {
+      "source": "x5_Video",
+      "target": "y"
+    },
+    {
+      "source": "x6_Social-Paid",
+      "target": "x7_Social-Organic"
+    },
+    {
+      "source": "x6_Social-Paid",
+      "target": "y"
+    },
+    {
+      "source": "x7_Social-Organic",
+      "target": "y"
+    },
+    {
+      "source": "x8_Display",
+      "target": "x11_Paid-Search"
+    },
+    {
+      "source": "x8_Display",
+      "target": "y"
+    },
+    {
+      "source": "x9_Programmatic",
+      "target": "y"
+    },
+    {
+      "source": "x10_Native-Ads",
+      "target": "y"
+    },
+    {
+      "source": "x11_Paid-Search",
+      "target": "y"
+    },
+    {
+      "source": "x12_Brand-Search",
+      "target": "y"
+    },
+    {
+      "source": "x13_Shopping-Ads",
+      "target": "y"
+    },
+    {
+      "source": "x14_Retargeting",
+      "target": "y"
+    },
+    {
+      "source": "x15_Affiliate",
+      "target": "y"
+    },
+    {
+      "source": "x16_CTV",
+      "target": "y"
+    },
+    {
+      "source": "x17_Streaming-Audio",
+      "target": "y"
+    },
+    {
+      "source": "x18_Influencer",
+      "target": "y"
+    },
+    {
+      "source": "x19_Email",
+      "target": "y"
+    },
+    {
+      "source": "x20_Push-Notif",
+      "target": "y"
+    }
+  ]
+}
