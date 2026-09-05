@@ -16,8 +16,7 @@ notebooks/resultados/**/checkpoints/
 *.ipynb.bak
 notebooks/*-checkpoint.ipynb
 
-# Causal discovery results (generated)
-causal_discovery/results/
+
 
 # Virtual environment
 .venv/
