@@ -68,6 +68,10 @@ def discover(
     else:
         residuals_aug = residuals
 
+    # Background knowledge: skip forbidden links to save test time
+    from causal_discovery.algorithms._background import parse_forbidden
+    forbidden = parse_forbidden(kwargs.get("forbidden_links"), var_names)
+
     # 2. Screen candidates via distance correlation on residuals
     # For each pair (i, j), test dcor(residual_i[:-lag], residual_j[lag:])
     pval = np.ones((n, n))
@@ -75,7 +79,7 @@ def discover(
 
     for i in range(n):
         for j in range(n):
-            if i == j:
+            if i == j or (i, j) in forbidden:
                 continue
             best_p = 1.0
             best_d = 0.0
@@ -121,7 +125,8 @@ def discover(
             if p_cond >= alpha:
                 adj_pruned[i, j] = 0.0
 
-    adj_pruned[y_idx, :] = 0.0  # y does not cause anything
+    for i, j in forbidden:
+        adj_pruned[i, j] = 0.0
     np.fill_diagonal(adj_pruned, 0.0)
 
     return CausalGraph(

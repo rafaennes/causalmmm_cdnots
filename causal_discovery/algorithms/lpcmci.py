@@ -41,10 +41,15 @@ def discover(
     from tigramite.independence_tests.parcorr import ParCorr
     from tigramite.lpcmci import LPCMCI
 
+    from causal_discovery.algorithms._background import parse_forbidden, merge_forbidden_into_link_assumptions
+    forbidden = parse_forbidden(kwargs.get("forbidden_links"), var_names)
+    link_assumptions = merge_forbidden_into_link_assumptions(None, forbidden, n, max_lag) or None
+
     dataframe = pp.DataFrame(X, var_names=list(range(n)))
     lpcmci_obj = LPCMCI(dataframe=dataframe, cond_ind_test=ParCorr(), verbosity=0)
 
-    results = lpcmci_obj.run_lpcmci(tau_max=max_lag, tau_min=1, pc_alpha=alpha)
+    results = lpcmci_obj.run_lpcmci(tau_max=max_lag, tau_min=1, pc_alpha=alpha,
+                                     link_assumptions=link_assumptions)
     # graph_matrix[i, j, tau]: string edge mark of i(t-tau) w.r.t. j(t).
     # "-->" = directed i->j; "o->" = uncertain tail, arrow to j; "<->" = bidirected.
     # We treat any mark ending with ">" as i causes j (conservative inclusion).
@@ -61,12 +66,13 @@ def discover(
                     adj[i, j] = 1.0
                     break
 
-    adj[y_idx, :] = 0.0  # y does not cause anything
+    for i, j in forbidden:
+        adj[i, j] = 0.0
 
     return CausalGraph(
         adjacency_matrix=adj,
         variable_names=tuple(var_names),
         algorithm="lpcmci",
         runtime_seconds=time.perf_counter() - start,
-        metadata={"graph_matrix": graph_matrix},
+        metadata={"graph_matrix": graph_matrix, "n_forbidden": len(forbidden)},
     )

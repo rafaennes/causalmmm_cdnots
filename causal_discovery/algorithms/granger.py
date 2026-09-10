@@ -36,10 +36,13 @@ def discover(
     n = len(var_names)
     y_idx = n - 1
 
+    # Background knowledge: skip forbidden links to save test time
+    forbidden = _parse_forbidden(kwargs.get("forbidden_links"), var_names)
+
     pval = np.ones((n, n))
     for i in range(n):
         for j in range(n):
-            if i == j:
+            if i == j or (i, j) in forbidden:
                 continue
             try:
                 # grangercausalitytests tests: does X[:,i] Granger-cause X[:,j]?
@@ -58,12 +61,21 @@ def discover(
                 pass  # leave pval[i,j] = 1.0 (no edge)
 
     adj = bh_correct(pval, alpha)
-    adj[y_idx, :] = 0.0  # y does not cause anything
+    for i, j in forbidden:
+        adj[i, j] = 0.0
 
     return CausalGraph(
         adjacency_matrix=adj,
         variable_names=tuple(var_names),
         algorithm="granger",
         runtime_seconds=time.perf_counter() - start,
-        metadata={"pvalues": pval},
+        metadata={"pvalues": pval, "n_forbidden": len(forbidden)},
     )
+
+
+def _parse_forbidden(forbidden_links, var_names):
+    """Convert set of (src_name, tgt_name) to set of (src_idx, tgt_idx)."""
+    if not forbidden_links:
+        return set()
+    idx = {name: i for i, name in enumerate(var_names)}
+    return {(idx[s], idx[t]) for s, t in forbidden_links if s in idx and t in idx}

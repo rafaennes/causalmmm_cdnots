@@ -54,8 +54,11 @@ def discover(
     n_aug = n + 1
     c_idx = n  # index of surrogate C in augmented matrix
 
-    # Link assumptions: C is exogenous (nothing causes C)
+    # Link assumptions: C is exogenous (nothing causes C) + background knowledge
     link_assumptions = _build_link_assumptions(n, c_idx, max_lag)
+    from causal_discovery.algorithms._background import parse_forbidden, merge_forbidden_into_link_assumptions
+    forbidden = parse_forbidden(kwargs.get("forbidden_links"), var_names)
+    link_assumptions = merge_forbidden_into_link_assumptions(link_assumptions, forbidden, n_aug, max_lag)
 
     from tigramite import data_processing as pp
     from tigramite.pcmci import PCMCI
@@ -120,7 +123,8 @@ def discover(
                     adj[i, j] = 0.0  # orient j -> i
                 # ponytail: if both or neither are C-adjacent, leave bidirectional
 
-    adj[y_idx, :] = 0.0  # y does not cause anything
+    for i, j in forbidden:
+        adj[i, j] = 0.0
 
     return CausalGraph(
         adjacency_matrix=adj,
@@ -132,6 +136,7 @@ def discover(
             "qvalues": qval,
             "c_adjacent_vars": [var_names[i] for i in c_adjacent],
             "n_c_adjacent": len(c_adjacent),
+            "n_forbidden": len(forbidden),
         },
     )
 

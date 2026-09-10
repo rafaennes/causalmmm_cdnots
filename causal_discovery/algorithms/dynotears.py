@@ -58,7 +58,12 @@ def discover(
 
     adj = (W > w_threshold).astype(float)
     np.fill_diagonal(adj, 0.0)   # no self-loops
-    adj[y_idx, :] = 0.0          # y does not cause anything
+
+    # Background knowledge: mask forbidden links (VAR fits everything, filter post-hoc)
+    from causal_discovery.algorithms._background import parse_forbidden
+    forbidden = parse_forbidden(kwargs.get("forbidden_links"), var_names)
+    for i, j in forbidden:
+        adj[i, j] = 0.0
 
     return CausalGraph(
         adjacency_matrix=adj,
@@ -69,5 +74,6 @@ def discover(
             "w_threshold": w_threshold,
             "n_edges_raw": int(adj.sum()),
             "weight_matrix": W,
+            "n_forbidden": len(forbidden),
         },
     )

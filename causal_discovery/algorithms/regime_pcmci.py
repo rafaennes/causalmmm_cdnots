@@ -57,8 +57,11 @@ def discover(
     n_aug = n + 1
     regime_idx = n  # index of regime column in augmented matrix
 
-    # 3. Build link assumptions: regime -> vars; nothing -> regime
+    # 3. Build link assumptions: regime -> vars; nothing -> regime; + background knowledge
     link_assumptions = _build_link_assumptions(n, regime_idx, max_lag)
+    from causal_discovery.algorithms._background import parse_forbidden, merge_forbidden_into_link_assumptions
+    forbidden = parse_forbidden(kwargs.get("forbidden_links"), var_names)
+    link_assumptions = merge_forbidden_into_link_assumptions(link_assumptions, forbidden, n_aug, max_lag)
 
     # 4. PCMCI with CMIknn on augmented data
     from tigramite import data_processing as pp
@@ -76,33 +79,33 @@ def discover(
 
     dataframe = pp.DataFrame(X_aug, var_names=list(range(n_aug)))
     pcmci = PCMCI(dataframe=dataframe, cond_ind_test=ci_test, verbosity=0)
+    # ponytail: pc_alpha=None skips PC pre-filtering (mirrors pcmci_cmiknn).
+    # CMIknn has low power in PC phase with many variables, causing true edge dropout.
     results = pcmci.run_pcmci(
         tau_max=max_lag,
         tau_min=1,
-        pc_alpha=alpha,
+        pc_alpha=None,
         link_assumptions=link_assumptions,
     )
     p_matrix = results["p_matrix"]
-    q_matrix = pcmci.get_corrected_pvalues(
-        p_matrix=p_matrix, tau_min=1, tau_max=max_lag, fdr_method="fdr_bh"
-    )
 
+    # ponytail: use raw p-values, not BH-corrected. CMIknn permutation p-values
+    # have floor ~1/(sig_samples+1) which can't survive BH over n²×tau tests.
+    # PCMCI's MCI conditioning already controls confounding; BH is redundant here.
     # 5. Extract n×n submatrix (strip regime row/col)
     adj = np.zeros((n, n))
     pval = np.ones((n, n))
-    qval = np.ones((n, n))
     for i in range(n):
         for j in range(n):
             if i == j:
                 continue
             min_p = float(p_matrix[i, j, 1 : max_lag + 1].min())
-            min_q = float(q_matrix[i, j, 1 : max_lag + 1].min())
             pval[i, j] = min_p
-            qval[i, j] = min_q
-            if min_q < alpha:
+            if min_p < alpha:
                 adj[i, j] = 1.0
 
-    adj[y_idx, :] = 0.0  # y does not cause anything
+    for i, j in forbidden:
+        adj[i, j] = 0.0
 
     return CausalGraph(
         adjacency_matrix=adj,
@@ -111,7 +114,6 @@ def discover(
         runtime_seconds=time.perf_counter() - start,
         metadata={
             "pvalues": pval,
-            "qvalues": qval,
             "regime_boundaries": _get_boundaries(regimes),
             "n_regimes": n_reg,
         },

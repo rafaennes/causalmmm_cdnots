@@ -84,37 +84,46 @@ def discover(
     causal_results = result["causal_results"]
     error_free = result["error_free_annealings"]
 
-    # causal_results is the PCMCI results dict from the best annealing
+    # ponytail: causal_results is {regime_k: pcmci_results_dict, ...},
+    # NOT a flat PCMCI dict. Aggregate across regimes: edge present if
+    # significant in ANY regime (union policy).
     adj = np.zeros((n, n))
     pval = np.ones((n, n))
 
-    p_matrix = causal_results.get("p_matrix", None) if isinstance(causal_results, dict) else None
-
-    if p_matrix is not None:
-        for i in range(n):
-            for j in range(n):
-                if i == j:
-                    continue
-                min_p = float(p_matrix[i, j, 1 : max_lag + 1].min())
-                pval[i, j] = min_p
-                if min_p < alpha:
-                    adj[i, j] = 1.0
-    else:
-        # Fallback: extract from graph string matrix
-        graph_matrix = (causal_results.get("graph", None)
-                        if isinstance(causal_results, dict) else None)
-        if graph_matrix is not None:
+    regime_dicts = (causal_results.values()
+                    if isinstance(causal_results, dict) else [])
+    for regime_results in regime_dicts:
+        if not isinstance(regime_results, dict):
+            continue
+        p_matrix = regime_results.get("p_matrix", None)
+        if p_matrix is not None:
             for i in range(n):
                 for j in range(n):
                     if i == j:
                         continue
-                    for tau in range(1, max_lag + 1):
-                        edge = graph_matrix[i, j, tau]
-                        if isinstance(edge, str) and edge.endswith(">"):
-                            adj[i, j] = 1.0
-                            break
+                    min_p = float(p_matrix[i, j, 1 : max_lag + 1].min())
+                    if min_p < pval[i, j]:
+                        pval[i, j] = min_p
+                    if min_p < alpha:
+                        adj[i, j] = 1.0
+        else:
+            graph_matrix = regime_results.get("graph", None)
+            if graph_matrix is not None:
+                for i in range(n):
+                    for j in range(n):
+                        if i == j:
+                            continue
+                        for tau in range(1, max_lag + 1):
+                            edge = graph_matrix[i, j, tau]
+                            if isinstance(edge, str) and edge.endswith(">"):
+                                adj[i, j] = 1.0
+                                break
 
-    adj[y_idx, :] = 0.0  # y does not cause anything
+    # Background knowledge: post-mask forbidden links (RPCMCI doesn't support link_assumptions)
+    from causal_discovery.algorithms._background import parse_forbidden
+    forbidden = parse_forbidden(kwargs.get("forbidden_links"), var_names)
+    for i, j in forbidden:
+        adj[i, j] = 0.0
 
     # Decode regime assignments from one-hot
     if regimes_raw is not None and hasattr(regimes_raw, 'ndim') and regimes_raw.ndim == 2:

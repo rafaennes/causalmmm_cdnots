@@ -12,30 +12,37 @@ def main() -> None:
     parser.add_argument("--presets", nargs="+", default=None,
                         help="Preset names (causal_business, causal_large)")
     parser.add_argument("--ladder", nargs="+", default=None,
-                        help="T0.5 ladder levels (L0-L9, or 'all')")
+                        help="T0.5 ladder levels (L0-L8, or 'all')")
     parser.add_argument("--algorithms", nargs="+", default=None,
                         help="Algorithm names (default: all registered)")
     parser.add_argument("--seeds", nargs="+", type=int, default=[2025])
+    parser.add_argument("--seed-algo", nargs="+", type=int, default=None,
+                        help="Algorithm seeds (default: same as --seeds)")
     parser.add_argument("--alpha", type=float, default=0.05)
     parser.add_argument("--max-lag", type=int, default=3)
     parser.add_argument("--output-dir", type=Path, default=Path("new_pipe_dag/results"))
     parser.add_argument("--spec-version", choices=["v1_legacy", "v2"], default="v1_legacy",
                         help="DGP version (v1_legacy=original bugs, v2=fixed)")
+    parser.add_argument("--background-knowledge", action="store_true", default=False,
+                        help="Skip impossible causal links (y→anything, controls→channels) "
+                             "to reduce runtime without affecting recall on plausible edges")
     args = parser.parse_args()
 
     ladder = args.ladder
     if ladder and "all" in ladder:
-        ladder = [f"L{i}" for i in range(10)]
+        ladder = [f"L{i}" for i in range(9)]
 
     df = run_benchmark(
         presets=args.presets,
         ladder_levels=ladder,
         algorithms=args.algorithms,
         seeds=args.seeds,
+        seed_algos=args.seed_algo,
         alpha=args.alpha,
         max_lag=args.max_lag,
         output_dir=args.output_dir,
         spec_version=args.spec_version,
+        use_background_knowledge=args.background_knowledge,
     )
     if not df.empty:
         print(f"\n{'='*60}")

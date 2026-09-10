@@ -50,12 +50,18 @@ def discover(
         from tigramite.independence_tests.parcorr import ParCorr
         ci_test = ParCorr()
 
+    # Background knowledge: skip forbidden links to save test time
+    from causal_discovery.algorithms._background import parse_forbidden, merge_forbidden_into_link_assumptions
+    forbidden = parse_forbidden(kwargs.get("forbidden_links"), var_names)
+    link_assumptions = merge_forbidden_into_link_assumptions(None, forbidden, n, max_lag) or None
+
     dataframe = pp.DataFrame(X, var_names=list(range(n)))
     pcmci = PCMCI(dataframe=dataframe, cond_ind_test=ci_test, verbosity=0)
 
     # ponytail: pc_alpha=None skips PC pre-filtering, letting MCI test all links.
     # CMIknn has low power in PC phase with many variables, causing true edge dropout.
-    results = pcmci.run_pcmci(tau_max=max_lag, tau_min=1, pc_alpha=None)
+    results = pcmci.run_pcmci(tau_max=max_lag, tau_min=1, pc_alpha=None,
+                               link_assumptions=link_assumptions)
     p_matrix = results["p_matrix"]
 
     # ponytail: use raw p-values, not BH-corrected. CMIknn permutation p-values
@@ -72,12 +78,13 @@ def discover(
             if min_p < alpha:
                 adj[i, j] = 1.0
 
-    adj[y_idx, :] = 0.0  # y does not cause anything
+    for i, j in forbidden:
+        adj[i, j] = 0.0
 
     return CausalGraph(
         adjacency_matrix=adj,
         variable_names=tuple(var_names),
         algorithm="pcmci_cmiknn",
         runtime_seconds=time.perf_counter() - start,
-        metadata={"pvalues": pval, "ci_test": "cmiknn"},
+        metadata={"pvalues": pval, "ci_test": "cmiknn", "n_forbidden": len(forbidden)},
     )

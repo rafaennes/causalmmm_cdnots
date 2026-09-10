@@ -96,7 +96,11 @@ def test_cedar(small_data):
 def test_rpcmci(small_data):
     """RPCMCI: joint regime + causal discovery (tigramite)."""
     data_df, var_names = small_data
-    g = rpcmci.discover(data_df, var_names, alpha=0.05, max_lag=2, num_regimes=2)
+    # RPCMCI doesn't support link_assumptions internally, so y→* must be
+    # post-masked via forbidden_links (matching benchmark usage).
+    forbidden = {("y", v) for v in var_names if v != "y"}
+    g = rpcmci.discover(data_df, var_names, alpha=0.05, max_lag=2, num_regimes=2,
+                        forbidden_links=forbidden)
     _check_graph(g, var_names, "rpcmci")
     assert "regimes" in g.metadata
     assert "num_regimes" in g.metadata
