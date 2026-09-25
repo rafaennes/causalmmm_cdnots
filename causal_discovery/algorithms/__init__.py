@@ -1,4 +1,5 @@
 from causal_discovery.algorithms import (
+    bvar_horseshoe,
     cdnots,
     cedar,
     dynotears,
@@ -11,6 +12,7 @@ from causal_discovery.algorithms import (
 
 REGISTRY: dict = {
     "granger": granger.discover,
+    "bvar_horseshoe": bvar_horseshoe.discover,
     "pcmci_cmiknn": pcmci_cmiknn.discover,
     "lpcmci": lpcmci.discover,
     "dynotears": dynotears.discover,

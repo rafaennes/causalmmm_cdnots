@@ -271,6 +271,7 @@ def run_benchmark(
                   f"ghosts={len(ghost_names)} T={len(data)} "
                   f"forbidden={len(forbidden_links)}")
             print(f"  max|r|={col_diag['max_abs_corr']:.3f}  "
+                  f"maxVIF={col_diag['max_vif']:.1f}  "
                   f"varsort_z={vs_z:.3f}  mean_r2={mean_r2:.4f}  "
                   f"pct_zero={pct_zero:.3f}")
 
@@ -338,6 +339,8 @@ def run_benchmark(
                         "max_abs_corr_channels": col_diag["max_abs_corr"],
                         "median_abs_corr_channels": col_diag["median_abs_corr"],
                         "condition_number": col_diag["condition_number"],
+                        "mean_vif_channels": col_diag["mean_vif"],
+                        "max_vif_channels": col_diag["max_vif"],
                         "varsortability_raw": vs_raw,
                         "varsortability_z": vs_z,
                         "pct_zero_spend": pct_zero,

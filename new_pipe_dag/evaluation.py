@@ -79,10 +79,12 @@ def varsortability(adj: np.ndarray, data: np.ndarray) -> float:
 
 
 def collinearity_diagnostics(data: np.ndarray, names: list[str]) -> dict[str, float]:
-    """Max |r|, median |r|, condition number over channel columns."""
+    """Max |r|, median |r|, condition number, VIF over channel columns."""
+    nan3 = {"max_abs_corr": float("nan"), "median_abs_corr": float("nan"),
+            "condition_number": float("nan"), "mean_vif": float("nan"),
+            "max_vif": float("nan")}
     if data.shape[1] < 2:
-        return {"max_abs_corr": float("nan"), "median_abs_corr": float("nan"),
-                "condition_number": float("nan")}
+        return nan3
     corr = np.corrcoef(data, rowvar=False)
     np.fill_diagonal(corr, 0.0)
     abs_corr = np.abs(corr)
@@ -90,9 +92,31 @@ def collinearity_diagnostics(data: np.ndarray, names: list[str]) -> dict[str, fl
     # ponytail: condition number on standardized data, not raw
     std = data.std(axis=0, keepdims=True)
     std[std == 0] = 1.0
-    cond = float(np.linalg.cond((data - data.mean(axis=0)) / std))
+    X = (data - data.mean(axis=0)) / std
+    cond = float(np.linalg.cond(X))
+    # ponytail: VIF via OLS R², no statsmodels import needed
+    # VIF_j = 1/(1 - R²_j) where R²_j is from regressing col j on all others
+    vifs = _compute_vif(X)
     return {
         "max_abs_corr": float(upper.max()) if len(upper) else float("nan"),
         "median_abs_corr": float(np.median(upper)) if len(upper) else float("nan"),
         "condition_number": cond,
+        "mean_vif": float(np.mean(vifs)),
+        "max_vif": float(np.max(vifs)),
     }
+
+
+def _compute_vif(X: np.ndarray) -> np.ndarray:
+    """VIF for each column of standardized X via least-squares R²."""
+    n, p = X.shape
+    vifs = np.empty(p)
+    for j in range(p):
+        others = np.delete(X, j, axis=1)
+        y = X[:, j]
+        # ponytail: lstsq is stdlib-numpy, no statsmodels needed
+        coef, residuals, _, _ = np.linalg.lstsq(others, y, rcond=None)
+        ss_res = np.sum((y - others @ coef) ** 2)
+        ss_tot = np.sum((y - y.mean()) ** 2)
+        r2 = 1.0 - ss_res / ss_tot if ss_tot > 0 else 0.0
+        vifs[j] = 1.0 / (1.0 - r2) if r2 < 1.0 else float("inf")
+    return vifs
