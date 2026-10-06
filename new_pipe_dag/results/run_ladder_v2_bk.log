@@ -1,0 +1,537 @@
+
+============================================================
+preset: causal_business  seed: 2025  spec=v2
+============================================================
+  channels=8 controls=1 ghosts=2 T=156 forbidden=25
+  max|r|=0.669  varsort_z=0.444  mean_r2=0.1615  pct_zero=0.067
+  Running granger (seed_algo=2025)... done (0.2s)
+    P=0.500  R=0.333  F1=0.400  SHD=9
+  Running dynotears (seed_algo=2025)... done (0.0s)
+    P=0.153  R=1.000  F1=0.265  SHD=50
+  Running lpcmci (seed_algo=2025)... done (0.8s)
+    P=0.238  R=0.556  F1=0.333  SHD=20
+  Running cedar (seed_algo=2025)... done (66.6s)
+    P=nan  R=0.000  F1=nan  SHD=9
+  Running rpcmci (seed_algo=2025)... done (30.4s)
+    P=nan  R=0.000  F1=nan  SHD=9
+  Running cdnots (seed_algo=2025)... done (858.3s)
+    P=1.000  R=0.444  F1=0.615  SHD=5
+  Running regime_pcmci (seed_algo=2025)... done (819.6s)
+    P=nan  R=0.000  F1=nan  SHD=9
+
+============================================================
+preset: causal_large  seed: 2025  spec=v2
+============================================================
+  channels=22 controls=10 ghosts=2 T=208 forbidden=472
+  max|r|=0.776  varsort_z=0.160  mean_r2=0.2221  pct_zero=0.067
+  Running granger (seed_algo=2025)... done (2.7s)
+    P=0.083  R=0.280  F1=0.128  SHD=95
+  Running dynotears (seed_algo=2025)... done (0.1s)
+    P=0.058  R=1.000  F1=0.109  SHD=408
+  Running lpcmci (seed_algo=2025)... done (11.1s)
+    P=0.126  R=0.520  F1=0.203  SHD=102
+  Running cedar (seed_algo=2025)... done (933.8s)
+    P=nan  R=0.000  F1=nan  SHD=25
+  Running rpcmci (seed_algo=2025)... done (306.4s)
+    P=nan  R=0.000  F1=nan  SHD=25
+  Running cdnots (seed_algo=2025)... done (7541.2s)
+    P=0.034  R=0.040  F1=0.037  SHD=52
+  Running regime_pcmci (seed_algo=2025)... done (7888.2s)
+    P=nan  R=0.000  F1=nan  SHD=25
+
+============================================================
+ladder: L0  seed: 2025  spec=v2
+============================================================
+  channels=4 controls=1 ghosts=0 T=1040 forbidden=13
+  max|r|=0.048  varsort_z=0.200  mean_r2=0.1108  pct_zero=0.000
+  Running granger (seed_algo=2025)... done (0.1s)
+    P=1.000  R=1.000  F1=1.000  SHD=0
+  Running dynotears (seed_algo=2025)... done (0.0s)
+    P=0.375  R=0.600  F1=0.462  SHD=7
+  Running lpcmci (seed_algo=2025)... done (0.2s)
+    P=0.833  R=1.000  F1=0.909  SHD=1
+  Running cedar (seed_algo=2025)... done (596.3s)
+    P=1.000  R=1.000  F1=1.000  SHD=0
+  Running rpcmci (seed_algo=2025)... done (404.8s)
+    P=nan  R=0.000  F1=nan  SHD=5
+  Running cdnots (seed_algo=2025)... done (807.9s)
+    P=nan  R=0.000  F1=nan  SHD=5
+  Running regime_pcmci (seed_algo=2025)... done (700.3s)
+    P=nan  R=0.000  F1=nan  SHD=5
+
+============================================================
+ladder: L1  seed: 2025  spec=v2
+============================================================
+  channels=4 controls=1 ghosts=0 T=1040 forbidden=13
+  max|r|=0.048  varsort_z=0.200  mean_r2=0.1324  pct_zero=0.000
+  Running granger (seed_algo=2025)... done (0.1s)
+    P=1.000  R=1.000  F1=1.000  SHD=0
+  Running dynotears (seed_algo=2025)... done (0.0s)
+    P=0.375  R=0.600  F1=0.462  SHD=7
+  Running lpcmci (seed_algo=2025)... done (0.3s)
+    P=0.833  R=1.000  F1=0.909  SHD=1
+  Running cedar (seed_algo=2025)... done (564.2s)
+    P=1.000  R=1.000  F1=1.000  SHD=0
+  Running rpcmci (seed_algo=2025)... done (364.1s)
+    P=nan  R=0.000  F1=nan  SHD=5
+  Running cdnots (seed_algo=2025)... done (806.6s)
+    P=nan  R=0.000  F1=nan  SHD=5
+  Running regime_pcmci (seed_algo=2025)... done (673.5s)
+    P=nan  R=0.000  F1=nan  SHD=5
+
+============================================================
+ladder: L2  seed: 2025  spec=v2
+============================================================
+  channels=4 controls=1 ghosts=0 T=156 forbidden=13
+  max|r|=0.101  varsort_z=0.400  mean_r2=0.1562  pct_zero=0.000
+  Running granger (seed_algo=2025)... done (0.1s)
+    P=1.000  R=1.000  F1=1.000  SHD=0
+  Running dynotears (seed_algo=2025)... done (0.0s)
+    P=0.312  R=1.000  F1=0.476  SHD=11
+  Running lpcmci (seed_algo=2025)... done (0.2s)
+    P=1.000  R=1.000  F1=1.000  SHD=0
+  Running cedar (seed_algo=2025)... done (22.9s)
+    P=0.833  R=1.000  F1=0.909  SHD=1
+  Running rpcmci (seed_algo=2025)... done (21.2s)
+    P=nan  R=0.000  F1=nan  SHD=5
+  Running cdnots (seed_algo=2025)... done (284.5s)
+    P=nan  R=0.000  F1=nan  SHD=5
+  Running regime_pcmci (seed_algo=2025)... done (200.1s)
+    P=nan  R=0.000  F1=nan  SHD=5
+
+============================================================
+ladder: L3  seed: 2025  spec=v2
+============================================================
+  channels=4 controls=1 ghosts=0 T=156 forbidden=13
+  max|r|=0.426  varsort_z=0.200  mean_r2=0.2925  pct_zero=0.000
+  Running granger (seed_algo=2025)... done (0.1s)
+    P=1.000  R=1.000  F1=1.000  SHD=0
+  Running dynotears (seed_algo=2025)... done (0.0s)
+    P=0.312  R=1.000  F1=0.476  SHD=11
+  Running lpcmci (seed_algo=2025)... done (0.2s)
+    P=1.000  R=1.000  F1=1.000  SHD=0
+  Running cedar (seed_algo=2025)... done (24.2s)
+    P=1.000  R=1.000  F1=1.000  SHD=0
+  Running rpcmci (seed_algo=2025)... done (17.3s)
+    P=nan  R=0.000  F1=nan  SHD=5
+  Running cdnots (seed_algo=2025)... done (299.5s)
+    P=nan  R=0.000  F1=nan  SHD=5
+  Running regime_pcmci (seed_algo=2025)... done (249.1s)
+    P=nan  R=0.000  F1=nan  SHD=5
+
+============================================================
+ladder: L4  seed: 2025  spec=v2
+============================================================
+  channels=4 controls=1 ghosts=0 T=156 forbidden=13
+  max|r|=0.101  varsort_z=0.400  mean_r2=0.1557  pct_zero=0.000
+  Running granger (seed_algo=2025)... done (0.1s)
+    P=1.000  R=1.000  F1=1.000  SHD=0
+  Running dynotears (seed_algo=2025)... done (0.0s)
+    P=0.312  R=1.000  F1=0.476  SHD=11
+  Running lpcmci (seed_algo=2025)... done (0.2s)
+    P=1.000  R=1.000  F1=1.000  SHD=0
+  Running cedar (seed_algo=2025)... done (24.3s)
+    P=0.833  R=1.000  F1=0.909  SHD=1
+  Running rpcmci (seed_algo=2025)... done (15.7s)
+    P=nan  R=0.000  F1=nan  SHD=5
+  Running cdnots (seed_algo=2025)... done (287.7s)
+    P=nan  R=0.000  F1=nan  SHD=5
+  Running regime_pcmci (seed_algo=2025)... done (211.6s)
+    P=nan  R=0.000  F1=nan  SHD=5
+
+============================================================
+ladder: L5  seed: 2025  spec=v2
+============================================================
+  channels=4 controls=1 ghosts=0 T=156 forbidden=13
+  max|r|=0.112  varsort_z=0.400  mean_r2=0.1417  pct_zero=0.000
+  Running granger (seed_algo=2025)... done (0.1s)
+    P=1.000  R=0.800  F1=0.889  SHD=1
+  Running dynotears (seed_algo=2025)... done (0.0s)
+    P=0.312  R=1.000  F1=0.476  SHD=11
+  Running lpcmci (seed_algo=2025)... done (0.2s)
+    P=0.833  R=1.000  F1=0.909  SHD=1
+  Running cedar (seed_algo=2025)... done (24.1s)
+    P=1.000  R=0.800  F1=0.889  SHD=1
+  Running rpcmci (seed_algo=2025)... done (15.5s)
+    P=nan  R=0.000  F1=nan  SHD=5
+  Running cdnots (seed_algo=2025)... done (218.7s)
+    P=nan  R=0.000  F1=nan  SHD=5
+  Running regime_pcmci (seed_algo=2025)... done (195.0s)
+    P=nan  R=0.000  F1=nan  SHD=5
+
+============================================================
+ladder: L6  seed: 2025  spec=v2
+============================================================
+  channels=4 controls=1 ghosts=0 T=156 forbidden=14
+  max|r|=0.730  varsort_z=0.375  mean_r2=0.3774  pct_zero=0.000
+  Running granger (seed_algo=2025)... /home/rafael.ennes/Documents/mestrado/causalmmm_cdnots/.venv/lib/python3.12/site-packages/statsmodels/tsa/stattools/_stattools.py:2488: SingularMatrixWarning: The design matrix is rank-deficient. The model parameters are not uniquely determined.
+  res2djoint = OLS(dta[:, 0], dtajoint).fit()
+/home/rafael.ennes/Documents/mestrado/causalmmm_cdnots/.venv/lib/python3.12/site-packages/statsmodels/base/model.py:1988: ValueWarning: covariance of constraints does not have full rank. The number of constraints is 3, but rank is 2
+  res = self.wald_test(
+/home/rafael.ennes/Documents/mestrado/causalmmm_cdnots/.venv/lib/python3.12/site-packages/statsmodels/tsa/stattools/_stattools.py:2488: SingularMatrixWarning: The design matrix is rank-deficient. The model parameters are not uniquely determined.
+  res2djoint = OLS(dta[:, 0], dtajoint).fit()
+/home/rafael.ennes/Documents/mestrado/causalmmm_cdnots/.venv/lib/python3.12/site-packages/statsmodels/base/model.py:1988: ValueWarning: covariance of constraints does not have full rank. The number of constraints is 3, but rank is 2
+  res = self.wald_test(
+/home/rafael.ennes/Documents/mestrado/causalmmm_cdnots/.venv/lib/python3.12/site-packages/statsmodels/tsa/stattools/_stattools.py:2488: SingularMatrixWarning: The design matrix is rank-deficient. The model parameters are not uniquely determined.
+  res2djoint = OLS(dta[:, 0], dtajoint).fit()
+/home/rafael.ennes/Documents/mestrado/causalmmm_cdnots/.venv/lib/python3.12/site-packages/statsmodels/base/model.py:1988: ValueWarning: covariance of constraints does not have full rank. The number of constraints is 3, but rank is 2
+  res = self.wald_test(
+/home/rafael.ennes/Documents/mestrado/causalmmm_cdnots/.venv/lib/python3.12/site-packages/statsmodels/tsa/stattools/_stattools.py:2488: SingularMatrixWarning: The design matrix is rank-deficient. The model parameters are not uniquely determined.
+  res2djoint = OLS(dta[:, 0], dtajoint).fit()
+/home/rafael.ennes/Documents/mestrado/causalmmm_cdnots/.venv/lib/python3.12/site-packages/statsmodels/base/model.py:1988: ValueWarning: covariance of constraints does not have full rank. The number of constraints is 3, but rank is 2
+  res = self.wald_test(
+/home/rafael.ennes/Documents/mestrado/causalmmm_cdnots/.venv/lib/python3.12/site-packages/statsmodels/tsa/stattools/_stattools.py:2488: SingularMatrixWarning: The design matrix is rank-deficient. The model parameters are not uniquely determined.
+  res2djoint = OLS(dta[:, 0], dtajoint).fit()
+/home/rafael.ennes/Documents/mestrado/causalmmm_cdnots/.venv/lib/python3.12/site-packages/statsmodels/base/model.py:1988: ValueWarning: covariance of constraints does not have full rank. The number of constraints is 3, but rank is 2
+  res = self.wald_test(
+/home/rafael.ennes/Documents/mestrado/causalmmm_cdnots/.venv/lib/python3.12/site-packages/statsmodels/tsa/stattools/_stattools.py:2488: SingularMatrixWarning: The design matrix is rank-deficient. The model parameters are not uniquely determined.
+  res2djoint = OLS(dta[:, 0], dtajoint).fit()
+/home/rafael.ennes/Documents/mestrado/causalmmm_cdnots/.venv/lib/python3.12/site-packages/statsmodels/base/model.py:1988: ValueWarning: covariance of constraints does not have full rank. The number of constraints is 3, but rank is 2
+  res = self.wald_test(
+done (0.1s)
+    P=0.615  R=1.000  F1=0.762  SHD=5
+  Running dynotears (seed_algo=2025)... done (0.0s)
+    P=0.250  R=0.625  F1=0.357  SHD=18
+  Running lpcmci (seed_algo=2025)... done (0.3s)
+    P=0.875  R=0.875  F1=0.875  SHD=2
+  Running cedar (seed_algo=2025)... done (40.9s)
+    P=1.000  R=0.750  F1=0.857  SHD=2
+  Running rpcmci (seed_algo=2025)... done (31.1s)
+    P=nan  R=0.000  F1=nan  SHD=8
+  Running cdnots (seed_algo=2025)... done (552.3s)
+    P=1.000  R=0.625  F1=0.769  SHD=3
+  Running regime_pcmci (seed_algo=2025)... done (479.1s)
+    P=1.000  R=0.625  F1=0.769  SHD=3
+
+============================================================
+ladder: L7  seed: 2025  spec=v2
+============================================================
+  channels=4 controls=1 ghosts=0 T=156 forbidden=13
+  max|r|=0.730  varsort_z=nan  mean_r2=0.2629  pct_zero=0.000
+  Running granger (seed_algo=2025)... done (0.1s)
+    P=0.556  R=1.000  F1=0.714  SHD=4
+  Running dynotears (seed_algo=2025)... done (0.0s)
+    P=0.312  R=1.000  F1=0.476  SHD=11
+  Running lpcmci (seed_algo=2025)... done (0.3s)
+    P=0.500  R=1.000  F1=0.667  SHD=5
+  Running cedar (seed_algo=2025)... done (23.9s)
+    P=1.000  R=0.800  F1=0.889  SHD=1
+  Running rpcmci (seed_algo=2025)... done (19.6s)
+    P=nan  R=0.000  F1=nan  SHD=5
+  Running cdnots (seed_algo=2025)... done (405.3s)
+    P=1.000  R=0.400  F1=0.571  SHD=3
+  Running regime_pcmci (seed_algo=2025)... done (341.7s)
+    P=nan  R=0.000  F1=nan  SHD=5
+
+============================================================
+ladder: L8  seed: 2025  spec=v2
+============================================================
+  channels=4 controls=1 ghosts=0 T=156 forbidden=13
+  max|r|=0.797  varsort_z=nan  mean_r2=0.7161  pct_zero=0.000
+  Running granger (seed_algo=2025)... done (0.1s)
+    P=0.312  R=1.000  F1=0.476  SHD=11
+  Running dynotears (seed_algo=2025)... done (0.0s)
+    P=0.312  R=1.000  F1=0.476  SHD=11
+  Running lpcmci (seed_algo=2025)... done (0.4s)
+    P=0.385  R=1.000  F1=0.556  SHD=8
+  Running cedar (seed_algo=2025)... done (27.4s)
+    P=0.625  R=1.000  F1=0.769  SHD=3
+  Running rpcmci (seed_algo=2025)... done (27.6s)
+    P=nan  R=0.000  F1=nan  SHD=5
+  Running cdnots (seed_algo=2025)... done (502.7s)
+    P=0.500  R=0.200  F1=0.286  SHD=5
+  Running regime_pcmci (seed_algo=2025)... done (463.8s)
+    P=nan  R=0.000  F1=nan  SHD=5
+
+============================================================
+ladder: L9  seed: 2025  spec=v2
+============================================================
+  channels=4 controls=1 ghosts=0 T=156 forbidden=13
+  max|r|=0.911  varsort_z=nan  mean_r2=0.8042  pct_zero=0.000
+  Running granger (seed_algo=2025)... done (0.1s)
+    P=0.312  R=1.000  F1=0.476  SHD=11
+  Running dynotears (seed_algo=2025)... done (0.0s)
+    P=0.333  R=1.000  F1=0.500  SHD=10
+  Running lpcmci (seed_algo=2025)... done (0.5s)
+    P=0.417  R=1.000  F1=0.588  SHD=7
+  Running cedar (seed_algo=2025)... done (26.4s)
+    P=0.667  R=0.800  F1=0.727  SHD=3
+  Running rpcmci (seed_algo=2025)... done (22.8s)
+    P=nan  R=0.000  F1=nan  SHD=5
+  Running cdnots (seed_algo=2025)... done (503.9s)
+    P=nan  R=0.000  F1=nan  SHD=5
+  Running regime_pcmci (seed_algo=2025)... done (379.9s)
+    P=0.500  R=0.400  F1=0.444  SHD=5
+
+Results: new_pipe_dag/results/runs.csv (266 new rows, append=existing)
+
+============================================================
+Summary by level × algorithm × stratum:
+                                                 precision  recall     f1    shd
+preset          algorithm    stratum                                            
+L0              cdnots       channel_to_channel        NaN   0.000    NaN    1.0
+                             channel_to_y              NaN   0.000    NaN    4.0
+                             overall                   NaN   0.000    NaN    5.0
+                cedar        channel_to_channel      1.000   1.000  1.000    0.0
+                             channel_to_y            1.000   1.000  1.000    0.0
+                             overall                 1.000   1.000  1.000    0.0
+                dynotears    channel_to_channel      0.000   0.000    NaN    6.0
+                             channel_to_y            1.000   0.750  0.857    1.0
+                             overall                 0.375   0.600  0.462    7.0
+                granger      channel_to_channel      1.000   1.000  1.000    0.0
+                             channel_to_y            1.000   1.000  1.000    0.0
+                             overall                 1.000   1.000  1.000    0.0
+                lpcmci       channel_to_channel      0.500   1.000  0.667    1.0
+                             channel_to_y            1.000   1.000  1.000    0.0
+                             overall                 0.833   1.000  0.909    1.0
+                regime_pcmci channel_to_channel        NaN   0.000    NaN    1.0
+                             channel_to_y              NaN   0.000    NaN    4.0
+                             overall                   NaN   0.000    NaN    5.0
+                rpcmci       channel_to_channel        NaN   0.000    NaN    1.0
+                             channel_to_y              NaN   0.000    NaN    4.0
+                             overall                   NaN   0.000    NaN    5.0
+L1              cdnots       channel_to_channel        NaN   0.000    NaN    1.0
+                             channel_to_y              NaN   0.000    NaN    4.0
+                             overall                   NaN   0.000    NaN    5.0
+                cedar        channel_to_channel      1.000   1.000  1.000    0.0
+                             channel_to_y            1.000   1.000  1.000    0.0
+                             overall                 1.000   1.000  1.000    0.0
+                dynotears    channel_to_channel      0.000   0.000    NaN    6.0
+                             channel_to_y            1.000   0.750  0.857    1.0
+                             overall                 0.375   0.600  0.462    7.0
+                granger      channel_to_channel      1.000   1.000  1.000    0.0
+                             channel_to_y            1.000   1.000  1.000    0.0
+                             overall                 1.000   1.000  1.000    0.0
+                lpcmci       channel_to_channel      0.500   1.000  0.667    1.0
+                             channel_to_y            1.000   1.000  1.000    0.0
+                             overall                 0.833   1.000  0.909    1.0
+                regime_pcmci channel_to_channel        NaN   0.000    NaN    1.0
+                             channel_to_y              NaN   0.000    NaN    4.0
+                             overall                   NaN   0.000    NaN    5.0
+                rpcmci       channel_to_channel        NaN   0.000    NaN    1.0
+                             channel_to_y              NaN   0.000    NaN    4.0
+                             overall                   NaN   0.000    NaN    5.0
+L2              cdnots       channel_to_channel        NaN   0.000    NaN    1.0
+                             channel_to_y              NaN   0.000    NaN    4.0
+                             overall                   NaN   0.000    NaN    5.0
+                cedar        channel_to_channel      0.500   1.000  0.667    1.0
+                             channel_to_y            1.000   1.000  1.000    0.0
+                             overall                 0.833   1.000  0.909    1.0
+                dynotears    channel_to_channel      0.083   1.000  0.154   11.0
+                             channel_to_y            1.000   1.000  1.000    0.0
+                             overall                 0.312   1.000  0.476   11.0
+                granger      channel_to_channel      1.000   1.000  1.000    0.0
+                             channel_to_y            1.000   1.000  1.000    0.0
+                             overall                 1.000   1.000  1.000    0.0
+                lpcmci       channel_to_channel      1.000   1.000  1.000    0.0
+                             channel_to_y            1.000   1.000  1.000    0.0
+                             overall                 1.000   1.000  1.000    0.0
+                regime_pcmci channel_to_channel        NaN   0.000    NaN    1.0
+                             channel_to_y              NaN   0.000    NaN    4.0
+                             overall                   NaN   0.000    NaN    5.0
+                rpcmci       channel_to_channel        NaN   0.000    NaN    1.0
+                             channel_to_y              NaN   0.000    NaN    4.0
+                             overall                   NaN   0.000    NaN    5.0
+L3              cdnots       channel_to_channel        NaN   0.000    NaN    1.0
+                             channel_to_y              NaN   0.000    NaN    4.0
+                             overall                   NaN   0.000    NaN    5.0
+                cedar        channel_to_channel      1.000   1.000  1.000    0.0
+                             channel_to_y            1.000   1.000  1.000    0.0
+                             overall                 1.000   1.000  1.000    0.0
+                dynotears    channel_to_channel      0.083   1.000  0.154   11.0
+                             channel_to_y            1.000   1.000  1.000    0.0
+                             overall                 0.312   1.000  0.476   11.0
+                granger      channel_to_channel      1.000   1.000  1.000    0.0
+                             channel_to_y            1.000   1.000  1.000    0.0
+                             overall                 1.000   1.000  1.000    0.0
+                lpcmci       channel_to_channel      1.000   1.000  1.000    0.0
+                             channel_to_y            1.000   1.000  1.000    0.0
+                             overall                 1.000   1.000  1.000    0.0
+                regime_pcmci channel_to_channel        NaN   0.000    NaN    1.0
+                             channel_to_y              NaN   0.000    NaN    4.0
+                             overall                   NaN   0.000    NaN    5.0
+                rpcmci       channel_to_channel        NaN   0.000    NaN    1.0
+                             channel_to_y              NaN   0.000    NaN    4.0
+                             overall                   NaN   0.000    NaN    5.0
+L4              cdnots       channel_to_channel        NaN   0.000    NaN    1.0
+                             channel_to_y              NaN   0.000    NaN    4.0
+                             overall                   NaN   0.000    NaN    5.0
+                cedar        channel_to_channel      0.500   1.000  0.667    1.0
+                             channel_to_y            1.000   1.000  1.000    0.0
+                             overall                 0.833   1.000  0.909    1.0
+                dynotears    channel_to_channel      0.083   1.000  0.154   11.0
+                             channel_to_y            1.000   1.000  1.000    0.0
+                             overall                 0.312   1.000  0.476   11.0
+                granger      channel_to_channel      1.000   1.000  1.000    0.0
+                             channel_to_y            1.000   1.000  1.000    0.0
+                             overall                 1.000   1.000  1.000    0.0
+                lpcmci       channel_to_channel      1.000   1.000  1.000    0.0
+                             channel_to_y            1.000   1.000  1.000    0.0
+                             overall                 1.000   1.000  1.000    0.0
+                regime_pcmci channel_to_channel        NaN   0.000    NaN    1.0
+                             channel_to_y              NaN   0.000    NaN    4.0
+                             overall                   NaN   0.000    NaN    5.0
+                rpcmci       channel_to_channel        NaN   0.000    NaN    1.0
+                             channel_to_y              NaN   0.000    NaN    4.0
+                             overall                   NaN   0.000    NaN    5.0
+L5              cdnots       channel_to_channel        NaN   0.000    NaN    1.0
+                             channel_to_y              NaN   0.000    NaN    4.0
+                             overall                   NaN   0.000    NaN    5.0
+                cedar        channel_to_channel        NaN   0.000    NaN    1.0
+                             channel_to_y            1.000   1.000  1.000    0.0
+                             overall                 1.000   0.800  0.889    1.0
+                dynotears    channel_to_channel      0.083   1.000  0.154   11.0
+                             channel_to_y            1.000   1.000  1.000    0.0
+                             overall                 0.312   1.000  0.476   11.0
+                granger      channel_to_channel        NaN   0.000    NaN    1.0
+                             channel_to_y            1.000   1.000  1.000    0.0
+                             overall                 1.000   0.800  0.889    1.0
+                lpcmci       channel_to_channel      0.500   1.000  0.667    1.0
+                             channel_to_y            1.000   1.000  1.000    0.0
+                             overall                 0.833   1.000  0.909    1.0
+                regime_pcmci channel_to_channel        NaN   0.000    NaN    1.0
+                             channel_to_y              NaN   0.000    NaN    4.0
+                             overall                   NaN   0.000    NaN    5.0
+                rpcmci       channel_to_channel        NaN   0.000    NaN    1.0
+                             channel_to_y              NaN   0.000    NaN    4.0
+                             overall                   NaN   0.000    NaN    5.0
+L6              cdnots       channel_to_channel      1.000   1.000  1.000    0.0
+                             channel_to_y            1.000   0.500  0.667    2.0
+                             overall                 1.000   0.625  0.769    3.0
+                cedar        channel_to_channel      1.000   1.000  1.000    0.0
+                             channel_to_y            1.000   0.750  0.857    1.0
+                             overall                 1.000   0.750  0.857    2.0
+                dynotears    channel_to_channel      0.083   1.000  0.154   11.0
+                             channel_to_y            1.000   1.000  1.000    0.0
+                             overall                 0.250   0.625  0.357   18.0
+                granger      channel_to_channel      0.200   1.000  0.333    4.0
+                             channel_to_y            1.000   1.000  1.000    0.0
+                             overall                 0.615   1.000  0.762    5.0
+                lpcmci       channel_to_channel      1.000   1.000  1.000    0.0
+                             channel_to_y            1.000   1.000  1.000    0.0
+                             overall                 0.875   0.875  0.875    2.0
+                regime_pcmci channel_to_channel      1.000   1.000  1.000    0.0
+                             channel_to_y            1.000   0.500  0.667    2.0
+                             overall                 1.000   0.625  0.769    3.0
+                rpcmci       channel_to_channel        NaN   0.000    NaN    1.0
+                             channel_to_y              NaN   0.000    NaN    4.0
+                             overall                   NaN   0.000    NaN    8.0
+L7              cdnots       channel_to_channel        NaN   0.000    NaN    1.0
+                             channel_to_y            1.000   0.500  0.667    2.0
+                             overall                 1.000   0.400  0.571    3.0
+                cedar        channel_to_channel      1.000   1.000  1.000    0.0
+                             channel_to_y            1.000   0.750  0.857    1.0
+                             overall                 1.000   0.800  0.889    1.0
+                dynotears    channel_to_channel      0.083   1.000  0.154   11.0
+                             channel_to_y            1.000   1.000  1.000    0.0
+                             overall                 0.312   1.000  0.476   11.0
+                granger      channel_to_channel      0.200   1.000  0.333    4.0
+                             channel_to_y            1.000   1.000  1.000    0.0
+                             overall                 0.556   1.000  0.714    4.0
+                lpcmci       channel_to_channel      0.167   1.000  0.286    5.0
+                             channel_to_y            1.000   1.000  1.000    0.0
+                             overall                 0.500   1.000  0.667    5.0
+                regime_pcmci channel_to_channel        NaN   0.000    NaN    1.0
+                             channel_to_y              NaN   0.000    NaN    4.0
+                             overall                   NaN   0.000    NaN    5.0
+                rpcmci       channel_to_channel        NaN   0.000    NaN    1.0
+                             channel_to_y              NaN   0.000    NaN    4.0
+                             overall                   NaN   0.000    NaN    5.0
+L8              cdnots       channel_to_channel      0.000   0.000    NaN    2.0
+                             channel_to_y            1.000   0.250  0.400    3.0
+                             overall                 0.500   0.200  0.286    5.0
+                cedar        channel_to_channel      0.250   1.000  0.400    3.0
+                             channel_to_y            1.000   1.000  1.000    0.0
+                             overall                 0.625   1.000  0.769    3.0
+                dynotears    channel_to_channel      0.083   1.000  0.154   11.0
+                             channel_to_y            1.000   1.000  1.000    0.0
+                             overall                 0.312   1.000  0.476   11.0
+                granger      channel_to_channel      0.083   1.000  0.154   11.0
+                             channel_to_y            1.000   1.000  1.000    0.0
+                             overall                 0.312   1.000  0.476   11.0
+                lpcmci       channel_to_channel      0.111   1.000  0.200    8.0
+                             channel_to_y            1.000   1.000  1.000    0.0
+                             overall                 0.385   1.000  0.556    8.0
+                regime_pcmci channel_to_channel        NaN   0.000    NaN    1.0
+                             channel_to_y              NaN   0.000    NaN    4.0
+                             overall                   NaN   0.000    NaN    5.0
+                rpcmci       channel_to_channel        NaN   0.000    NaN    1.0
+                             channel_to_y              NaN   0.000    NaN    4.0
+                             overall                   NaN   0.000    NaN    5.0
+L9              cdnots       channel_to_channel        NaN   0.000    NaN    1.0
+                             channel_to_y              NaN   0.000    NaN    4.0
+                             overall                   NaN   0.000    NaN    5.0
+                cedar        channel_to_channel      0.333   1.000  0.500    2.0
+                             channel_to_y            1.000   0.750  0.857    1.0
+                             overall                 0.667   0.800  0.727    3.0
+                dynotears    channel_to_channel      0.091   1.000  0.167   10.0
+                             channel_to_y            1.000   1.000  1.000    0.0
+                             overall                 0.333   1.000  0.500   10.0
+                granger      channel_to_channel      0.083   1.000  0.154   11.0
+                             channel_to_y            1.000   1.000  1.000    0.0
+                             overall                 0.312   1.000  0.476   11.0
+                lpcmci       channel_to_channel      0.125   1.000  0.222    7.0
+                             channel_to_y            1.000   1.000  1.000    0.0
+                             overall                 0.417   1.000  0.588    7.0
+                regime_pcmci channel_to_channel      0.000   0.000    NaN    3.0
+                             channel_to_y            1.000   0.500  0.667    2.0
+                             overall                 0.500   0.400  0.444    5.0
+                rpcmci       channel_to_channel        NaN   0.000    NaN    1.0
+                             channel_to_y              NaN   0.000    NaN    4.0
+                             overall                   NaN   0.000    NaN    5.0
+causal_business cdnots       channel_to_channel      1.000   0.333  0.500    2.0
+                             channel_to_y            1.000   0.500  0.667    3.0
+                             ghost_to_y                NaN     NaN    NaN    0.0
+                             overall                 1.000   0.444  0.615    5.0
+                cedar        channel_to_channel        NaN   0.000    NaN    3.0
+                             channel_to_y              NaN   0.000    NaN    6.0
+                             ghost_to_y                NaN     NaN    NaN    0.0
+                             overall                   NaN   0.000    NaN    9.0
+                dynotears    channel_to_channel      0.059   1.000  0.111   48.0
+                             channel_to_y            1.000   1.000  1.000    0.0
+                             ghost_to_y              0.000     NaN    NaN    2.0
+                             overall                 0.153   1.000  0.265   50.0
+                granger      channel_to_channel      0.250   0.333  0.286    5.0
+                             channel_to_y            1.000   0.333  0.500    4.0
+                             ghost_to_y                NaN     NaN    NaN    0.0
+                             overall                 0.500   0.333  0.400    9.0
+                lpcmci       channel_to_channel      0.111   0.667  0.190   17.0
+                             channel_to_y            1.000   0.500  0.667    3.0
+                             ghost_to_y                NaN     NaN    NaN    0.0
+                             overall                 0.238   0.556  0.333   20.0
+                regime_pcmci channel_to_channel        NaN   0.000    NaN    3.0
+                             channel_to_y              NaN   0.000    NaN    6.0
+                             ghost_to_y                NaN     NaN    NaN    0.0
+                             overall                   NaN   0.000    NaN    9.0
+                rpcmci       channel_to_channel        NaN   0.000    NaN    3.0
+                             channel_to_y              NaN   0.000    NaN    6.0
+                             ghost_to_y                NaN     NaN    NaN    0.0
+                             overall                   NaN   0.000    NaN    9.0
+causal_large    cdnots       channel_to_channel      0.034   0.200  0.059   32.0
+                             channel_to_y              NaN   0.000    NaN   20.0
+                             ghost_to_y                NaN     NaN    NaN    0.0
+                             overall                 0.034   0.040  0.037   52.0
+                cedar        channel_to_channel        NaN   0.000    NaN    5.0
+                             channel_to_y              NaN   0.000    NaN   20.0
+                             ghost_to_y                NaN     NaN    NaN    0.0
+                             overall                   NaN   0.000    NaN   25.0
+                dynotears    channel_to_channel      0.012   1.000  0.024  406.0
+                             channel_to_y            1.000   1.000  1.000    0.0
+                             ghost_to_y              0.000     NaN    NaN    2.0
+                             overall                 0.058   1.000  0.109  408.0
+                granger      channel_to_channel      0.049   0.800  0.093   78.0
+                             channel_to_y            1.000   0.150  0.261   17.0
+                             ghost_to_y                NaN     NaN    NaN    0.0
+                             overall                 0.083   0.280  0.128   95.0
+                lpcmci       channel_to_channel      0.053   1.000  0.100   90.0
+                             channel_to_y            1.000   0.400  0.571   12.0
+                             ghost_to_y                NaN     NaN    NaN    0.0
+                             overall                 0.126   0.520  0.203  102.0
+                regime_pcmci channel_to_channel        NaN   0.000    NaN    5.0
+                             channel_to_y              NaN   0.000    NaN   20.0
+                             ghost_to_y                NaN     NaN    NaN    0.0
+                             overall                   NaN   0.000    NaN   25.0
+                rpcmci       channel_to_channel        NaN   0.000    NaN    5.0
+                             channel_to_y              NaN   0.000    NaN   20.0
+                             ghost_to_y                NaN     NaN    NaN    0.0
+                             overall                   NaN   0.000    NaN   25.0

@@ -1,0 +1,35 @@
+
+============================================================
+preset: causal_large  seed: 2025  spec=v2
+============================================================
+  channels=22 controls=10 ghosts=2 T=208 forbidden=472
+  max|r|=0.776  varsort_z=0.160  mean_r2=0.2221  pct_zero=0.067
+  Running granger (seed_algo=2025)... done (2.0s)
+    P=0.083  R=0.280  F1=0.128  SHD=95
+  Running dynotears (seed_algo=2025)... done (0.1s)
+    P=0.058  R=1.000  F1=0.109  SHD=408
+  Running lpcmci (seed_algo=2025)... done (8.7s)
+    P=0.126  R=0.520  F1=0.203  SHD=102
+  Running cedar (seed_algo=2025)... done (808.1s)
+    P=nan  R=0.000  F1=nan  SHD=25
+  Running rpcmci (seed_algo=2025)... done (307.0s)
+    P=nan  R=0.000  F1=nan  SHD=25
+  Running pcmci_cmiknn (seed_algo=2025)... done (14554.4s)
+    P=0.032  R=0.080  F1=0.045  SHD=84
+  Running cdnots (seed_algo=2025)... done (8426.3s)
+    P=0.034  R=0.040  F1=0.037  SHD=52
+  Running regime_pcmci (seed_algo=2025)... done (7786.4s)
+    P=nan  R=0.000  F1=nan  SHD=25
+  Running granger (seed_algo=2026)... done (2.0s)
+    P=0.083  R=0.280  F1=0.128  SHD=95
+  Running dynotears (seed_algo=2026)... done (0.1s)
+    P=0.058  R=1.000  F1=0.109  SHD=408
+  Running lpcmci (seed_algo=2026)... done (8.3s)
+    P=0.126  R=0.520  F1=0.203  SHD=102
+  Running cedar (seed_algo=2026)... done (743.2s)
+    P=nan  R=0.000  F1=nan  SHD=25
+  Running rpcmci (seed_algo=2026)... done (249.6s)
+    P=nan  R=0.000  F1=nan  SHD=25
+  Running pcmci_cmiknn (seed_algo=2026)... done (9984.3s)
+    P=0.032  R=0.080  F1=0.045  SHD=84
+  Running cdnots (seed_algo=2026)... 
