@@ -4,7 +4,7 @@ warnings.filterwarnings("ignore")
 
 PYMC_COMPARISON_ROOT = "/home/ennes/mestrado/pymc_meridian_comparison"
 CAUSALMMM_ROOT       = "/home/ennes/mestrado/causalmmm_with_cdnots"
-ARQUIVOS_RECENTES    = os.path.join(CAUSALMMM_ROOT, "arquivos_recentes")
+ARQUIVOS_RECENTES    = os.path.join(CAUSALMMM_ROOT, "cdnots")
 RESULTS_DIR          = os.path.join(CAUSALMMM_ROOT, "notebooks", "resultados", "causal_business")
 os.makedirs(RESULTS_DIR, exist_ok=True)
 

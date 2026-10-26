@@ -1,0 +1,5 @@
+Braço                      , R² (fit)          , MAPE % (fit)      , sRMSE (contrib), MAPE % (contrib), ESS mín, ESS q50, SHD grafo, F1 grafo, Runtime (s), CD-NOTS
+Braço 1: PyMC Baseline     , 0.9737            , 3.6               ,          1.8256,           377.73,    66.0,   718.0,          ,         ,      1469.9, Não
+Braço 2: Meridian Baseline , 0.9872999787330627, 2.5               ,          0.7375,            64.31,   115.0,   128.0,          ,         ,       472.2, Não
+Braço 3: PyMC + CD-NOTS    , 0.9764            , 3.48              ,          1.7756,           425.56,   501.0,  3186.0,       5.0,   0.8889,      7009.9, Sim
+Braço 4: Meridian + CD-NOTS, 0.9864000082015991, 2.6600000858306885,          0.7228,            94.69,  1113.0,  1237.0,       5.0,   0.8889,      1117.9, Sim
