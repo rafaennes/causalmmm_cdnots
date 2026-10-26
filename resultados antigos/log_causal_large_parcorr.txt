@@ -1,0 +1,311 @@
+2026-05-14 07:19:06.651463: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: SSE3 SSE4.1 SSE4.2 AVX AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+RESULTS_DIR: /home/ennes/mestrado/causalmmm_with_cdnots/notebooks/resultados
+Paths configurados.
+Imports principais OK
+CD-NOTS: módulos carregados via importlib (fallback)
+Meridian: disponível
+Preset: causal_large  |  CI test: parcorr
+                                                                                
+  Dataset shape             208 rows × 46 columns                               
+  Effective modeling size   208 rows × 35 columns (time, geo, 22 channels, 10   
+                            controls, target)                                   
+  Regions                   ['national']                                        
+  Date range                2020-01-05 00:00:00 to 2023-12-24 00:00:00          
+  Channels                  22 channels: x1_TV, x2_OOH, x3_Radio...             
+  Controls                  10 controls                                         
+                                                                                
+RESULTS_DIR atualizado: 
+/home/ennes/mestrado/causalmmm_with_cdnots/notebooks/resultados/causal_large
+
+Canais: ['x1_TV', 'x2_OOH', 'x3_Radio', 'x4_Podcast', 'x5_Video', 
+'x6_Social-Paid', 'x7_Social-Organic', 'x8_Display', 'x9_Programmatic', 
+'x10_Native-Ads', 'x11_Paid-Search', 'x12_Brand-Search', 'x13_Shopping-Ads', 
+'x14_Retargeting', 'x15_Affiliate', 'x16_CTV', 'x17_Streaming-Audio', 
+'x18_Influencer', 'x19_Email', 'x20_Push-Notif', 'x21_Ghost-A', 'x22_Ghost-B']
+Controles: ['c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7', 'c8', 'c9', 'c10']
+Shape data_df: (208, 46)
+Shape truth_df: (208, 24)
+Arestas verdadeiras: 25 (todos os canais → y)
+────────────────────────── CD-NOTS: Descoberta Causal ──────────────────────────
+
+  CD-NOTS Discovery v2: 22 channels + 10 controls + y = 33 vars, 1/1 geos, 208 
+timepoints, CI: parcorr, alpha: 0.05, max_lag: 2
+           CD-NOTS Discovery Results (v2)            
+┏━━━━━━━━━━━━━━━━━━━━━┳━━━━━┳━━━━━━━━━━┳━━━━━━━━━━━━┓
+┃ Channel             ┃ → y ┃ Category ┃ Endogenous ┃
+┡━━━━━━━━━━━━━━━━━━━━━╇━━━━━╇━━━━━━━━━━╇━━━━━━━━━━━━┩
+│ x1_TV               │ ✗   │ excluded │ ⚠ YES      │
+│ x2_OOH              │ ✗   │ excluded │ ⚠ YES      │
+│ x3_Radio            │ ✗   │ excluded │            │
+│ x4_Podcast          │ ✗   │ excluded │ ⚠ YES      │
+│ x5_Video            │ ✓   │ direct   │ ⚠ YES      │
+│ x6_Social-Paid      │ ✗   │ excluded │ ⚠ YES      │
+│ x7_Social-Organic   │ ✗   │ excluded │ ⚠ YES      │
+│ x8_Display          │ ✗   │ excluded │            │
+│ x9_Programmatic     │ ✗   │ excluded │            │
+│ x10_Native-Ads      │ ✗   │ excluded │            │
+│ x11_Paid-Search     │ ✗   │ excluded │            │
+│ x12_Brand-Search    │ ✗   │ excluded │            │
+│ x13_Shopping-Ads    │ ✗   │ excluded │            │
+│ x14_Retargeting     │ ✗   │ excluded │            │
+│ x15_Affiliate       │ ✗   │ excluded │            │
+│ x16_CTV             │ ✗   │ excluded │            │
+│ x17_Streaming-Audio │ ✗   │ excluded │            │
+│ x18_Influencer      │ ✗   │ excluded │            │
+│ x19_Email           │ ✗   │ excluded │ ⚠ YES      │
+│ x20_Push-Notif      │ ✓   │ direct   │            │
+│ x21_Ghost-A         │ ✗   │ excluded │            │
+│ x22_Ghost-B         │ ✗   │ excluded │            │
+└─────────────────────┴─────┴──────────┴────────────┘
+  Edges: 31 | Direct: 2 | Mediated: 0 | Excluded: 20 | Endogenous: 7 | Runtime: 
+14.0s
+
+  Endogeneity detected:
+    c1 → x1_TV (confounder: c1 causes both x1_TV and y)
+    c4 → x2_OOH (confounder: c4 causes both x2_OOH and y)
+    c3 → x4_Podcast (confounder: c3 causes both x4_Podcast and y)
+    c3 → x5_Video (confounder: c3 causes both x5_Video and y)
+    c6 → x6_Social-Paid (confounder: c6 causes both x6_Social-Paid and y)
+    c6 → x7_Social-Organic (confounder: c6 causes both x7_Social-Organic and y)
+    c9 → x19_Email (confounder: c9 causes both x19_Email and y)
+
+Grafo salvo em: 
+/home/ennes/mestrado/causalmmm_with_cdnots/notebooks/resultados/causal_large/cdn
+ots_graph.pkl
+Plot salvo em: 
+/home/ennes/mestrado/causalmmm_with_cdnots/notebooks/resultados/causal_large/cdn
+ots_graph.png
+
+Arestas controle → canal detectadas:
+  c1 → x1_TV
+  c4 → x2_OOH
+  c3 → x4_Podcast
+  c3 → x5_Video
+  c6 → x6_Social-Paid
+  c6 → x7_Social-Organic
+  c9 → x19_Email
+  CD-NOTS vs. Grafo   
+Verdadeiro — Métricas 
+     Estruturais      
+┏━━━━━━━━━━━┳━━━━━━━━┓
+┃ Métrica   ┃ Valor  ┃
+┡━━━━━━━━━━━╇━━━━━━━━┩
+│ precision │ 0.2273 │
+│ recall    │ 0.2    │
+│ f1        │ 0.2128 │
+│ fdr       │ 0.7727 │
+│ shd       │ 37     │
+│ tp        │ 5      │
+│ fp        │ 17     │
+│ fn        │ 20     │
+│ tn        │ 464    │
+└───────────┴────────┘
+Canais diretos:   ['x5_Video', 'x20_Push-Notif']
+Canais mediados:  []
+Canais excluídos: ['x1_TV', 'x2_OOH', 'x3_Radio', 'x4_Podcast', 
+'x6_Social-Paid', 'x7_Social-Organic', 'x8_Display', 'x9_Programmatic', 
+'x10_Native-Ads', 'x11_Paid-Search', 'x12_Brand-Search', 'x13_Shopping-Ads', 
+'x14_Retargeting', 'x15_Affiliate', 'x16_CTV', 'x17_Streaming-Audio', 
+'x18_Influencer', 'x19_Email', 'x21_Ghost-A', 'x22_Ghost-B']
+Runtime CD-NOTS:  14.0s
+ci_test_used: parcorr
+n_edges: 31
+runtime: 14.012743505998515
+
+Arestas canal→y detectadas:
+  x1_TV                          ✗
+  x2_OOH                         ✗
+  x3_Radio                       ✗
+  x4_Podcast                     ✗
+  x5_Video                       ✓
+  x6_Social-Paid                 ✗
+  x7_Social-Organic              ✗
+  x8_Display                     ✗
+  x9_Programmatic                ✗
+  x10_Native-Ads                 ✗
+  x11_Paid-Search                ✗
+  x12_Brand-Search               ✗
+  x13_Shopping-Ads               ✗
+  x14_Retargeting                ✗
+  x15_Affiliate                  ✗
+  x16_CTV                        ✗
+  x17_Streaming-Audio            ✗
+  x18_Influencer                 ✗
+  x19_Email                      ✗
+  x20_Push-Notif                 ✓
+  x21_Ghost-A                    ✗
+  x22_Ghost-B                    ✗
+Configuração: 2 chains × 500 draws, tune=500, sampler=nutpie
+Checkpoints em: 
+/home/ennes/mestrado/causalmmm_with_cdnots/notebooks/resultados/causal_large/che
+ckpoints
+─────────────────────── Braço 1: PyMC-Marketing Baseline ───────────────────────
+  Fitting PyMC-Marketing with nutpie, 2 chains, 500 draws, 500 tune steps
+WARNING:2026-05-14 07:21:43,362:jax._src.xla_bridge:969: An NVIDIA GPU may be present on this machine, but a CUDA-enabled jaxlib is not installed. Falling back to cpu.
+Computing ... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 100% 0:00:00
+Sampling: [y]
+Sampling ... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 100% 0:00:00 / 0:00:00
+  ✓ PyMC-Marketing - nutpie: 1469.9s, ESS min: 66.10101686161038
+✓ Checkpoint salvo: 
+/home/ennes/mestrado/causalmmm_with_cdnots/notebooks/resultados/causal_large/che
+ckpoints/arm1_pymc_baseline.pkl
+
+✓ Runtime: 1469.9s | ESS mín: 66
+────────────────────────── Braço 2: Meridian Baseline ──────────────────────────
+  Fitting Meridian with 2 chains, 500 draws, 500 tune steps
+2026-05-14 07:49:39.701585: I tensorflow/compiler/mlir/tensorflow/utils/dump_mlir_util.cc:268] disabling MLIR crash reproducer, set env var `MLIR_CRASH_REPRODUCER_DIRECTORY` to enable.
+  ✓ Meridian: 472.2s, ESS min: 115.08839786445098
+✓ Checkpoint salvo: 
+/home/ennes/mestrado/causalmmm_with_cdnots/notebooks/resultados/causal_large/che
+ckpoints/arm2_meridian_baseline.pkl
+
+✓ Runtime: 472.2s | ESS mín: 115
+                          Ajuste de Priors via CD-NOTS                          
+┏━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━┳━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━┳━━━━━━━━━━━━┓
+┃ Canal              ┃ Categoria ┃ σ base (médio) ┃ Multiplicador ┃ σ ajustado ┃
+┡━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━╇━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━╇━━━━━━━━━━━━┩
+│ x1_TV              │ excluído  │ 0.0691         │ 0.400×        │ 0.0277     │
+│ x2_OOH             │ excluído  │ 0.0108         │ 0.400×        │ 0.0043     │
+│ x3_Radio           │ excluído  │ 0.0151         │ 0.400×        │ 0.0060     │
+│ x4_Podcast         │ excluído  │ 0.8454         │ 0.400×        │ 0.3382     │
+│ x5_Video           │ direto    │ 5.4072         │ 0.923×        │ 4.9892     │
+│ x6_Social-Paid     │ excluído  │ 0.0263         │ 0.400×        │ 0.0105     │
+│ x7_Social-Organic  │ excluído  │ 1.6480         │ 0.400×        │ 0.6592     │
+│ x8_Display         │ excluído  │ 1.1330         │ 0.400×        │ 0.4532     │
+│ x9_Programmatic    │ excluído  │ 0.8963         │ 0.400×        │ 0.3585     │
+│ x10_Native-Ads     │ excluído  │ 1.4411         │ 0.400×        │ 0.5764     │
+│ x11_Paid-Search    │ excluído  │ 2.5449         │ 0.400×        │ 1.0180     │
+│ x12_Brand-Search   │ excluído  │ 0.0163         │ 0.400×        │ 0.0065     │
+│ x13_Shopping-Ads   │ excluído  │ 0.0385         │ 0.400×        │ 0.0154     │
+│ x14_Retargeting    │ excluído  │ 0.8017         │ 0.400×        │ 0.3207     │
+│ x15_Affiliate      │ excluído  │ 0.3415         │ 0.400×        │ 0.1366     │
+│ x16_CTV            │ excluído  │ 3.6464         │ 0.400×        │ 1.4586     │
+│ x17_Streaming-Aud… │ excluído  │ 1.7674         │ 0.400×        │ 0.7070     │
+│ x18_Influencer     │ excluído  │ 0.6039         │ 0.400×        │ 0.2416     │
+│ x19_Email          │ excluído  │ 0.0020         │ 0.400×        │ 0.0008     │
+│ x20_Push-Notif     │ direto    │ 0.1697         │ 0.993×        │ 0.1685     │
+│ x21_Ghost-A        │ excluído  │ 0.0306         │ 0.400×        │ 0.0122     │
+│ x22_Ghost-B        │ excluído  │ 0.5448         │ 0.400×        │ 0.2179     │
+└────────────────────┴───────────┴────────────────┴───────────────┴────────────┘
+────────────────────── Braço 3: PyMC-Marketing + CD-NOTS ───────────────────────
+  Fitting PyMC-Marketing + CD-NOTS with nutpie, 2 chains, 500 draws, 500 tune 
+steps
+    Graph: 2 direct, 0 mediated, 20 excluded
+
+  Prior adjustments (MIN_SIGMA_RATIO=0.4, formula: σ×(0.4+0.6×PIP)):
+                             x1_TV: σ×0.400  (p=1.0000, q=1.0000, PIP=0.000, excluded)
+                            x2_OOH: σ×0.400  (p=1.0000, q=1.0000, PIP=0.000, excluded)
+                          x3_Radio: σ×0.400  (p=1.0000, q=1.0000, PIP=0.000, excluded)
+                        x4_Podcast: σ×0.400  (p=1.0000, q=1.0000, PIP=0.000, excluded)
+                          x5_Video: σ×0.923  (p=0.0012, q=0.0395, PIP=0.960, direct)
+                    x6_Social-Paid: σ×0.400  (p=1.0000, q=1.0000, PIP=0.000, excluded)
+                 x7_Social-Organic: σ×0.400  (p=1.0000, q=1.0000, PIP=0.000, excluded)
+                        x8_Display: σ×0.400  (p=1.0000, q=1.0000, PIP=0.000, excluded)
+                   x9_Programmatic: σ×0.400  (p=1.0000, q=1.0000, PIP=0.000, excluded)
+                    x10_Native-Ads: σ×0.400  (p=1.0000, q=1.0000, PIP=0.000, excluded)
+                   x11_Paid-Search: σ×0.400  (p=1.0000, q=1.0000, PIP=0.000, excluded)
+                  x12_Brand-Search: σ×0.400  (p=1.0000, q=1.0000, PIP=0.000, excluded)
+                  x13_Shopping-Ads: σ×0.400  (p=1.0000, q=1.0000, PIP=0.000, excluded)
+                   x14_Retargeting: σ×0.400  (p=1.0000, q=1.0000, PIP=0.000, excluded)
+                     x15_Affiliate: σ×0.400  (p=1.0000, q=1.0000, PIP=0.000, excluded)
+                           x16_CTV: σ×0.400  (p=1.0000, q=1.0000, PIP=0.000, excluded)
+               x17_Streaming-Audio: σ×0.400  (p=1.0000, q=1.0000, PIP=0.000, excluded)
+                    x18_Influencer: σ×0.400  (p=1.0000, q=1.0000, PIP=0.000, excluded)
+                         x19_Email: σ×0.400  (p=1.0000, q=1.0000, PIP=0.000, excluded)
+                    x20_Push-Notif: σ×0.993  (p=0.0003, q=0.0111, PIP=0.989, direct)
+                       x21_Ghost-A: σ×0.400  (p=1.0000, q=1.0000, PIP=0.000, excluded)
+                       x22_Ghost-B: σ×0.400  (p=1.0000, q=1.0000, PIP=0.000, excluded)
+Computing ... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 100% 0:00:00
+Sampling: [y]
+Sampling ... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 100% 0:00:00 / 0:00:00
+  ✓ PyMC + CD-NOTS - nutpie: 1065.6s, ESS min: 14.38941013697663
+✓ Checkpoint salvo: 
+/home/ennes/mestrado/causalmmm_with_cdnots/notebooks/resultados/causal_large/che
+ckpoints/arm3_pymc_cdnots.pkl
+
+✓ Runtime: 1065.6s | ESS mín: 14
+───────────────────────── Braço 4: Meridian + CD-NOTS ──────────────────────────
+  Fitting Meridian + CD-NOTS with 2 chains, 500 draws, 500 tune steps
+    Graph: 2 direct, 0 mediated, 20 excluded
+
+  Prior adjustments (MIN_SIGMA_RATIO=0.4, formula: σ×(0.4+0.6×PIP)):
+                             x1_TV: σ×0.400  (p=1.0000, q=1.0000, PIP=0.000, excluded)
+                            x2_OOH: σ×0.400  (p=1.0000, q=1.0000, PIP=0.000, excluded)
+                          x3_Radio: σ×0.400  (p=1.0000, q=1.0000, PIP=0.000, excluded)
+                        x4_Podcast: σ×0.400  (p=1.0000, q=1.0000, PIP=0.000, excluded)
+                          x5_Video: σ×0.923  (p=0.0012, q=0.0395, PIP=0.960, direct)
+                    x6_Social-Paid: σ×0.400  (p=1.0000, q=1.0000, PIP=0.000, excluded)
+                 x7_Social-Organic: σ×0.400  (p=1.0000, q=1.0000, PIP=0.000, excluded)
+                        x8_Display: σ×0.400  (p=1.0000, q=1.0000, PIP=0.000, excluded)
+                   x9_Programmatic: σ×0.400  (p=1.0000, q=1.0000, PIP=0.000, excluded)
+                    x10_Native-Ads: σ×0.400  (p=1.0000, q=1.0000, PIP=0.000, excluded)
+                   x11_Paid-Search: σ×0.400  (p=1.0000, q=1.0000, PIP=0.000, excluded)
+                  x12_Brand-Search: σ×0.400  (p=1.0000, q=1.0000, PIP=0.000, excluded)
+                  x13_Shopping-Ads: σ×0.400  (p=1.0000, q=1.0000, PIP=0.000, excluded)
+                   x14_Retargeting: σ×0.400  (p=1.0000, q=1.0000, PIP=0.000, excluded)
+                     x15_Affiliate: σ×0.400  (p=1.0000, q=1.0000, PIP=0.000, excluded)
+                           x16_CTV: σ×0.400  (p=1.0000, q=1.0000, PIP=0.000, excluded)
+               x17_Streaming-Audio: σ×0.400  (p=1.0000, q=1.0000, PIP=0.000, excluded)
+                    x18_Influencer: σ×0.400  (p=1.0000, q=1.0000, PIP=0.000, excluded)
+                         x19_Email: σ×0.400  (p=1.0000, q=1.0000, PIP=0.000, excluded)
+                    x20_Push-Notif: σ×0.993  (p=0.0003, q=0.0111, PIP=0.989, direct)
+                       x21_Ghost-A: σ×0.400  (p=1.0000, q=1.0000, PIP=0.000, excluded)
+                       x22_Ghost-B: σ×0.400  (p=1.0000, q=1.0000, PIP=0.000, excluded)
+  ✓ Meridian + CD-NOTS: 404.3s, ESS min: 108.28712107236831
+✓ Checkpoint salvo: 
+/home/ennes/mestrado/causalmmm_with_cdnots/notebooks/resultados/causal_large/che
+ckpoints/arm4_meridian_cdnots.pkl
+
+✓ Runtime: 404.3s | ESS mín: 108
+Métricas de ajuste salvas.
+2026-05-14 08:18:33.308963: W external/local_xla/xla/tsl/framework/cpu_allocator_impl.cc:83] Allocation of 18304000 exceeds 10% of free system memory.
+2026-05-14 08:18:34.070825: W external/local_xla/xla/tsl/framework/cpu_allocator_impl.cc:83] Allocation of 18304000 exceeds 10% of free system memory.
+Warning: Length mismatch for x1_TV in Local: true=0, pred=208
+Warning: Length mismatch for x2_OOH in Local: true=0, pred=208
+Warning: Length mismatch for x3_Radio in Local: true=0, pred=208
+Warning: Length mismatch for x4_Podcast in Local: true=0, pred=208
+Warning: Length mismatch for x5_Video in Local: true=0, pred=208
+Warning: Length mismatch for x6_Social-Paid in Local: true=0, pred=208
+Warning: Length mismatch for x7_Social-Organic in Local: true=0, pred=208
+Warning: Length mismatch for x8_Display in Local: true=0, pred=208
+Warning: Length mismatch for x9_Programmatic in Local: true=0, pred=208
+Warning: Length mismatch for x10_Native-Ads in Local: true=0, pred=208
+Warning: Length mismatch for x11_Paid-Search in Local: true=0, pred=208
+Warning: Length mismatch for x12_Brand-Search in Local: true=0, pred=208
+Warning: Length mismatch for x13_Shopping-Ads in Local: true=0, pred=208
+Warning: Length mismatch for x14_Retargeting in Local: true=0, pred=208
+Warning: Length mismatch for x15_Affiliate in Local: true=0, pred=208
+Warning: Length mismatch for x16_CTV in Local: true=0, pred=208
+Warning: Length mismatch for x17_Streaming-Audio in Local: true=0, pred=208
+Warning: Length mismatch for x18_Influencer in Local: true=0, pred=208
+Warning: Length mismatch for x19_Email in Local: true=0, pred=208
+Warning: Length mismatch for x20_Push-Notif in Local: true=0, pred=208
+Warning: Length mismatch for x21_Ghost-A in Local: true=0, pred=208
+Warning: Length mismatch for x22_Ghost-B in Local: true=0, pred=208
+Warning: Length mismatch for x1_TV in Local: true=0, pred=208
+Warning: Length mismatch for x2_OOH in Local: true=0, pred=208
+Warning: Length mismatch for x3_Radio in Local: true=0, pred=208
+Warning: Length mismatch for x4_Podcast in Local: true=0, pred=208
+Warning: Length mismatch for x5_Video in Local: true=0, pred=208
+Warning: Length mismatch for x6_Social-Paid in Local: true=0, pred=208
+Warning: Length mismatch for x7_Social-Organic in Local: true=0, pred=208
+Warning: Length mismatch for x8_Display in Local: true=0, pred=208
+Warning: Length mismatch for x9_Programmatic in Local: true=0, pred=208
+Warning: Length mismatch for x10_Native-Ads in Local: true=0, pred=208
+Warning: Length mismatch for x11_Paid-Search in Local: true=0, pred=208
+Warning: Length mismatch for x12_Brand-Search in Local: true=0, pred=208
+Warning: Length mismatch for x13_Shopping-Ads in Local: true=0, pred=208
+Warning: Length mismatch for x14_Retargeting in Local: true=0, pred=208
+Warning: Length mismatch for x15_Affiliate in Local: true=0, pred=208
+Warning: Length mismatch for x16_CTV in Local: true=0, pred=208
+Warning: Length mismatch for x17_Streaming-Audio in Local: true=0, pred=208
+Warning: Length mismatch for x18_Influencer in Local: true=0, pred=208
+Warning: Length mismatch for x19_Email in Local: true=0, pred=208
+Warning: Length mismatch for x20_Push-Notif in Local: true=0, pred=208
+Warning: Length mismatch for x21_Ghost-A in Local: true=0, pred=208
+Warning: Length mismatch for x22_Ghost-B in Local: true=0, pred=208
+Métricas de contribuição salvas.
+Diagnósticos salvos.
+Resumo do experimento salvo.
+Memória liberada.

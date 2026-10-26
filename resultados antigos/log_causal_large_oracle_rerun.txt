@@ -1,0 +1,135 @@
+2026-06-18 11:49:52.403262: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: SSE3 SSE4.1 SSE4.2 AVX AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+RESULTS_DIR: /home/ennes/mestrado/causalmmm_with_cdnots/notebooks/resultados
+Paths configurados.
+Imports principais OK
+CD-NOTS: módulos carregados via importlib (fallback)
+Meridian: disponível
+Preset: causal_large  |  CI test: oracle
+                                                                                
+  Dataset shape             208 rows × 46 columns                               
+  Effective modeling size   208 rows × 35 columns (time, geo, 22 channels, 10   
+                            controls, target)                                   
+  Regions                   ['national']                                        
+  Date range                2020-01-05 00:00:00 to 2023-12-24 00:00:00          
+  Channels                  22 channels: x1_TV, x2_OOH, x3_Radio...             
+  Controls                  10 controls                                         
+                                                                                
+RESULTS_DIR atualizado: 
+/home/ennes/mestrado/causalmmm_with_cdnots/notebooks/resultados/causal_large/ora
+cle
+
+Canais: ['x1_TV', 'x2_OOH', 'x3_Radio', 'x4_Podcast', 'x5_Video', 
+'x6_Social-Paid', 'x7_Social-Organic', 'x8_Display', 'x9_Programmatic', 
+'x10_Native-Ads', 'x11_Paid-Search', 'x12_Brand-Search', 'x13_Shopping-Ads', 
+'x14_Retargeting', 'x15_Affiliate', 'x16_CTV', 'x17_Streaming-Audio', 
+'x18_Influencer', 'x19_Email', 'x20_Push-Notif', 'x21_Ghost-A', 'x22_Ghost-B']
+Controles: ['c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7', 'c8', 'c9', 'c10']
+Shape data_df: (208, 46)
+Shape truth_df: (208, 24)
+Arestas verdadeiras: 25 (todos os canais → y)
+────────────────────────── CD-NOTS: Descoberta Causal ──────────────────────────
+           CD-NOTS Discovery Results (v2)            
+┏━━━━━━━━━━━━━━━━━━━━━┳━━━━━┳━━━━━━━━━━┳━━━━━━━━━━━━┓
+┃ Channel             ┃ → y ┃ Category ┃ Endogenous ┃
+┡━━━━━━━━━━━━━━━━━━━━━╇━━━━━╇━━━━━━━━━━╇━━━━━━━━━━━━┩
+│ x1_TV               │ ✓   │ direct   │            │
+│ x2_OOH              │ ✓   │ direct   │            │
+│ x3_Radio            │ ✓   │ direct   │            │
+│ x4_Podcast          │ ✓   │ direct   │            │
+│ x5_Video            │ ✓   │ direct   │            │
+│ x6_Social-Paid      │ ✓   │ direct   │            │
+│ x7_Social-Organic   │ ✓   │ direct   │            │
+│ x8_Display          │ ✓   │ direct   │            │
+│ x9_Programmatic     │ ✓   │ direct   │            │
+│ x10_Native-Ads      │ ✓   │ direct   │            │
+│ x11_Paid-Search     │ ✓   │ direct   │            │
+│ x12_Brand-Search    │ ✓   │ direct   │            │
+│ x13_Shopping-Ads    │ ✓   │ direct   │            │
+│ x14_Retargeting     │ ✓   │ direct   │            │
+│ x15_Affiliate       │ ✓   │ direct   │            │
+│ x16_CTV             │ ✓   │ direct   │            │
+│ x17_Streaming-Audio │ ✓   │ direct   │            │
+│ x18_Influencer      │ ✓   │ direct   │            │
+│ x19_Email           │ ✓   │ direct   │            │
+│ x20_Push-Notif      │ ✓   │ direct   │            │
+│ x21_Ghost-A         │ ✗   │ excluded │            │
+│ x22_Ghost-B         │ ✗   │ excluded │            │
+└─────────────────────┴─────┴──────────┴────────────┘
+  Edges: 20 | Direct: 20 | Mediated: 0 | Excluded: 2 | Endogenous: 0 | Runtime: 
+0.0s
+Grafo oracle salvo em: 
+/home/ennes/mestrado/causalmmm_with_cdnots/notebooks/resultados/causal_large/ora
+cle/cdnots_graph.pkl
+Plot salvo em: 
+/home/ennes/mestrado/causalmmm_with_cdnots/notebooks/resultados/causal_large/ora
+cle/cdnots_graph.png
+
+Nenhuma aresta controle → canal detectada no grafo de consenso.
+  CD-NOTS vs. Grafo   
+Verdadeiro — Métricas 
+     Estruturais      
+┏━━━━━━━━━━━┳━━━━━━━━┓
+┃ Métrica   ┃ Valor  ┃
+┡━━━━━━━━━━━╇━━━━━━━━┩
+│ precision │ 1.0    │
+│ recall    │ 0.8    │
+│ f1        │ 0.8889 │
+│ fdr       │ 0.0    │
+│ shd       │ 5      │
+│ tp        │ 20     │
+│ fp        │ 0      │
+│ fn        │ 5      │
+│ tn        │ 481    │
+└───────────┴────────┘
+Canais diretos:   ['x1_TV', 'x2_OOH', 'x3_Radio', 'x4_Podcast', 'x5_Video', 
+'x6_Social-Paid', 'x7_Social-Organic', 'x8_Display', 'x9_Programmatic', 
+'x10_Native-Ads', 'x11_Paid-Search', 'x12_Brand-Search', 'x13_Shopping-Ads', 
+'x14_Retargeting', 'x15_Affiliate', 'x16_CTV', 'x17_Streaming-Audio', 
+'x18_Influencer', 'x19_Email', 'x20_Push-Notif']
+Canais mediados:  []
+Canais excluídos: ['x21_Ghost-A', 'x22_Ghost-B']
+Runtime CD-NOTS:  0.0s
+ci_test_used: oracle
+n_edges: 20
+runtime: 0.0
+
+Arestas canal→y detectadas:
+  x1_TV                          ✓
+  x2_OOH                         ✓
+  x3_Radio                       ✓
+  x4_Podcast                     ✓
+  x5_Video                       ✓
+  x6_Social-Paid                 ✓
+  x7_Social-Organic              ✓
+  x8_Display                     ✓
+  x9_Programmatic                ✓
+  x10_Native-Ads                 ✓
+  x11_Paid-Search                ✓
+  x12_Brand-Search               ✓
+  x13_Shopping-Ads               ✓
+  x14_Retargeting                ✓
+  x15_Affiliate                  ✓
+  x16_CTV                        ✓
+  x17_Streaming-Audio            ✓
+  x18_Influencer                 ✓
+  x19_Email                      ✓
+  x20_Push-Notif                 ✓
+  x21_Ghost-A                    ✗
+  x22_Ghost-B                    ✗
+Configuração: 2 chains × 500 draws, tune=500, sampler=nutpie
+Checkpoints em: 
+/home/ennes/mestrado/causalmmm_with_cdnots/notebooks/resultados/causal_large/ora
+cle/checkpoints
+─────────────────────── Braço 1: PyMC-Marketing Baseline ───────────────────────
+  Fitting PyMC-Marketing with nutpie, 2 chains, 500 draws, 500 tune steps
+WARNING:2026-06-18 11:50:55,865:jax._src.xla_bridge:969: An NVIDIA GPU may be present on this machine, but a CUDA-enabled jaxlib is not installed. Falling back to cpu.
+Computing ... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 100% 0:00:00
+Sampling: [y]
+Sampling ... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 100% 0:00:00 / 0:00:00
+  ✓ PyMC-Marketing - nutpie: 1681.0s, ESS min: 66.10101686161038
+Traceback (most recent call last):
+  File "/home/ennes/mestrado/causalmmm_with_cdnots/notebooks/experimento_4bracos.py", line 496, in <module>
+    with open(_ckpt, "wb") as f:
+         ^^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: '/home/ennes/mestrado/causalmmm_with_cdnots/notebooks/resultados/causal_large/checkpoints/arm1_pymc_baseline.pkl'

@@ -1,0 +1,47 @@
+{
+  "preset": "causal_large",
+  "seed": 20250715,
+  "n_geos": 1,
+  "n_weeks": 208,
+  "channels": [
+    "x1_TV",
+    "x2_OOH",
+    "x3_Radio",
+    "x4_Podcast",
+    "x5_Video",
+    "x6_Social-Paid",
+    "x7_Social-Organic",
+    "x8_Display",
+    "x9_Programmatic",
+    "x10_Native-Ads",
+    "x11_Paid-Search",
+    "x12_Brand-Search",
+    "x13_Shopping-Ads",
+    "x14_Retargeting",
+    "x15_Affiliate",
+    "x16_CTV",
+    "x17_Streaming-Audio",
+    "x18_Influencer",
+    "x19_Email",
+    "x20_Push-Notif"
+  ],
+  "controls": [
+    "c1",
+    "c2",
+    "c3",
+    "c4",
+    "c5",
+    "c6",
+    "c7",
+    "c8",
+    "c9",
+    "c10"
+  ],
+  "mcmc": {
+    "n_chains": 2,
+    "n_draws": 500,
+    "n_tune": 500,
+    "target_accept": 0.9,
+    "sampler": "nutpie"
+  }
+}

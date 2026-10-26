@@ -1,0 +1,189 @@
+2026-04-12 23:44:31.120644: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: SSE3 SSE4.1 SSE4.2 AVX AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+RESULTS_DIR: /home/ennes/mestrado/causalmmm_with_cdnots/notebooks/resultados
+Paths configurados.
+Imports principais OK
+CD-NOTS: módulos carregados via importlib (fallback)
+Meridian: disponível
+                                                                                                                                                                
+  Dataset shape             10400 rows × 54 columns                                                                                                             
+  Effective modeling size   10400 rows × 43 columns (time, geo, 30 channels, 10 controls, target)                                                               
+  Regions                   ['geo_1', 'geo_2', 'geo_3', 'geo_4', 'geo_5', 'geo_6', 'geo_7', 'geo_8', 'geo_9', 'geo_10', 'geo_11', 'geo_12', 'geo_13',           
+                            'geo_14', 'geo_15', 'geo_16', 'geo_17', 'geo_18', 'geo_19', 'geo_20', 'geo_21', 'geo_22', 'geo_23', 'geo_24', 'geo_25', 'geo_26',   
+                            'geo_27', 'geo_28', 'geo_29', 'geo_30', 'geo_31', 'geo_32', 'geo_33', 'geo_34', 'geo_35', 'geo_36', 'geo_37', 'geo_38', 'geo_39',   
+                            'geo_40', 'geo_41', 'geo_42', 'geo_43', 'geo_44', 'geo_45', 'geo_46', 'geo_47', 'geo_48', 'geo_49', 'geo_50']                       
+  Date range                2020-01-05 00:00:00 to 2023-12-24 00:00:00                                                                                          
+  Channels                  30 channels: x1_linear-0, x2_linear-1, x3_linear-2...                                                                               
+  Controls                  10 controls                                                                                                                         
+                                                                                                                                                                
+RESULTS_DIR atualizado: /home/ennes/mestrado/causalmmm_with_cdnots/notebooks/resultados/large_business
+
+Canais: ['x1_linear-0', 'x2_linear-1', 'x3_linear-2', 'x4_linear-3', 'x5_linear-4', 'x6_linear-5', 'x7_linear-6', 'x8_linear-7', 'x9_linear-8', 'x10_linear-9', 
+'x11_delayed-start-0', 'x12_delayed-start-1', 'x13_delayed-start-2', 'x14_delayed-start-3', 'x15_delayed-start-4', 'x16_seasonal-0', 'x17_seasonal-1', 
+'x18_seasonal-2', 'x19_seasonal-3', 'x20_seasonal-4', 'x21_on-off-0', 'x22_on-off-1', 'x23_on-off-2', 'x24_on-off-3', 'x25_on-off-4', 'x26_on-off-5', 
+'x27_on-off-6', 'x28_on-off-7', 'x29_on-off-8', 'x30_on-off-9']
+Controles: ['c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7', 'c8', 'c9', 'c10']
+Shape data_df: (10400, 54)
+Shape truth_df: (10400, 32)
+qt.qpa.plugin: Could not find the Qt platform plugin "wayland" in ""
+Arestas verdadeiras: 30 (todos os canais → y)
+────────────────────────────────────────────────────────────────── CD-NOTS: Descoberta Causal ──────────────────────────────────────────────────────────────────
+
+  CD-NOTS Discovery v2: 30 channels + 10 controls + y = 41 vars, 1/1 geos, 10400 timepoints, CI: kci, alpha: 0.05, max_lag: 2
+           CD-NOTS Discovery Results (v2)            
+┏━━━━━━━━━━━━━━━━━━━━━┳━━━━━┳━━━━━━━━━━┳━━━━━━━━━━━━┓
+┃ Channel             ┃ → y ┃ Category ┃ Endogenous ┃
+┡━━━━━━━━━━━━━━━━━━━━━╇━━━━━╇━━━━━━━━━━╇━━━━━━━━━━━━┩
+│ x1_linear-0         │ ✓   │ direct   │ ⚠ YES      │
+│ x2_linear-1         │ ✓   │ direct   │ ⚠ YES      │
+│ x3_linear-2         │ ✗   │ mediated │ ⚠ YES      │
+│ x4_linear-3         │ ✓   │ direct   │ ⚠ YES      │
+│ x5_linear-4         │ ✓   │ direct   │ ⚠ YES      │
+│ x6_linear-5         │ ✗   │ mediated │ ⚠ YES      │
+│ x7_linear-6         │ ✓   │ direct   │ ⚠ YES      │
+│ x8_linear-7         │ ✗   │ mediated │ ⚠ YES      │
+│ x9_linear-8         │ ✓   │ direct   │ ⚠ YES      │
+│ x10_linear-9        │ ✓   │ direct   │ ⚠ YES      │
+│ x11_delayed-start-0 │ ✓   │ direct   │ ⚠ YES      │
+│ x12_delayed-start-1 │ ✓   │ direct   │ ⚠ YES      │
+│ x13_delayed-start-2 │ ✓   │ direct   │ ⚠ YES      │
+│ x14_delayed-start-3 │ ✓   │ direct   │ ⚠ YES      │
+│ x15_delayed-start-4 │ ✓   │ direct   │ ⚠ YES      │
+│ x16_seasonal-0      │ ✓   │ direct   │ ⚠ YES      │
+│ x17_seasonal-1      │ ✓   │ direct   │ ⚠ YES      │
+│ x18_seasonal-2      │ ✓   │ direct   │ ⚠ YES      │
+│ x19_seasonal-3      │ ✓   │ direct   │ ⚠ YES      │
+│ x20_seasonal-4      │ ✓   │ direct   │ ⚠ YES      │
+│ x21_on-off-0        │ ✓   │ direct   │            │
+│ x22_on-off-1        │ ✓   │ direct   │ ⚠ YES      │
+│ x23_on-off-2        │ ✓   │ direct   │ ⚠ YES      │
+│ x24_on-off-3        │ ✓   │ direct   │ ⚠ YES      │
+│ x25_on-off-4        │ ✗   │ mediated │            │
+│ x26_on-off-5        │ ✗   │ mediated │ ⚠ YES      │
+│ x27_on-off-6        │ ✗   │ mediated │            │
+│ x28_on-off-7        │ ✗   │ excluded │            │
+│ x29_on-off-8        │ ✗   │ mediated │ ⚠ YES      │
+│ x30_on-off-9        │ ✓   │ direct   │ ⚠ YES      │
+└─────────────────────┴─────┴──────────┴────────────┘
+  Edges: 382 | Direct: 22 | Mediated: 7 | Excluded: 1 | Endogenous: 26 | Runtime: 345.0s
+
+  Endogeneity detected:
+    c6 → x1_linear-0 (confounder: c6 causes both x1_linear-0 and y)
+    c7 → x2_linear-1 (confounder: c7 causes both x2_linear-1 and y)
+    c4 → x3_linear-2 (confounder: c4 causes both x3_linear-2 and y)
+    c4 → x4_linear-3 (confounder: c4 causes both x4_linear-3 and y)
+    c1 → x5_linear-4 (confounder: c1 causes both x5_linear-4 and y)
+    c1 → x6_linear-5 (confounder: c1 causes both x6_linear-5 and y)
+    c7 → x7_linear-6 (confounder: c7 causes both x7_linear-6 and y)
+    c7 → x8_linear-7 (confounder: c7 causes both x8_linear-7 and y)
+    c5 → x9_linear-8 (confounder: c5 causes both x9_linear-8 and y)
+    c8 → x10_linear-9 (confounder: c8 causes both x10_linear-9 and y)
+    c7 → x11_delayed-start-0 (confounder: c7 causes both x11_delayed-start-0 and y)
+    c4 → x12_delayed-start-1 (confounder: c4 causes both x12_delayed-start-1 and y)
+    c7 → x13_delayed-start-2 (confounder: c7 causes both x13_delayed-start-2 and y)
+    c7 → x14_delayed-start-3 (confounder: c7 causes both x14_delayed-start-3 and y)
+    c7 → x15_delayed-start-4 (confounder: c7 causes both x15_delayed-start-4 and y)
+    c2 → x16_seasonal-0 (confounder: c2 causes both x16_seasonal-0 and y)
+    c6 → x17_seasonal-1 (confounder: c6 causes both x17_seasonal-1 and y)
+    c7 → x18_seasonal-2 (confounder: c7 causes both x18_seasonal-2 and y)
+    c10 → x19_seasonal-3 (confounder: c10 causes both x19_seasonal-3 and y)
+    c1 → x20_seasonal-4 (confounder: c1 causes both x20_seasonal-4 and y)
+    c4 → x22_on-off-1 (confounder: c4 causes both x22_on-off-1 and y)
+    c2 → x23_on-off-2 (confounder: c2 causes both x23_on-off-2 and y)
+    c7 → x24_on-off-3 (confounder: c7 causes both x24_on-off-3 and y)
+    c1 → x26_on-off-5 (confounder: c1 causes both x26_on-off-5 and y)
+    c1 → x29_on-off-8 (confounder: c1 causes both x29_on-off-8 and y)
+    c8 → x30_on-off-9 (confounder: c8 causes both x30_on-off-9 and y)
+
+Grafo salvo em: /home/ennes/mestrado/causalmmm_with_cdnots/notebooks/resultados/large_business/cdnots_graph.pkl
+Plot salvo em: /home/ennes/mestrado/causalmmm_with_cdnots/notebooks/resultados/large_business/cdnots_graph.png
+
+Arestas controle → canal detectadas:
+  c6 → x1_linear-0
+  c7 → x2_linear-1
+  c4 → x3_linear-2
+  c4 → x4_linear-3
+  c1 → x5_linear-4
+  c1 → x6_linear-5
+  c7 → x7_linear-6
+  c7 → x8_linear-7
+  c5 → x9_linear-8
+  c8 → x10_linear-9
+  c7 → x11_delayed-start-0
+  c4 → x12_delayed-start-1
+  c7 → x13_delayed-start-2
+  c7 → x14_delayed-start-3
+  c7 → x15_delayed-start-4
+  c2 → x16_seasonal-0
+  c6 → x17_seasonal-1
+  c7 → x18_seasonal-2
+  c10 → x19_seasonal-3
+  c1 → x20_seasonal-4
+  c4 → x22_on-off-1
+  c2 → x23_on-off-2
+  c7 → x24_on-off-3
+  c1 → x26_on-off-5
+  c1 → x29_on-off-8
+  c8 → x30_on-off-9
+  CD-NOTS vs. Grafo   
+Verdadeiro — Métricas 
+     Estruturais      
+┏━━━━━━━━━━━┳━━━━━━━━┓
+┃ Métrica   ┃ Valor  ┃
+┡━━━━━━━━━━━╇━━━━━━━━┩
+│ precision │ 0.0717 │
+│ recall    │ 0.7333 │
+│ f1        │ 0.1306 │
+│ fdr       │ 0.9283 │
+│ shd       │ 293    │
+│ tp        │ 22     │
+│ fp        │ 285    │
+│ fn        │ 8      │
+│ tn        │ 615    │
+└───────────┴────────┘
+Canais diretos:   ['x1_linear-0', 'x2_linear-1', 'x4_linear-3', 'x5_linear-4', 'x7_linear-6', 'x9_linear-8', 'x10_linear-9', 'x11_delayed-start-0', 
+'x12_delayed-start-1', 'x13_delayed-start-2', 'x14_delayed-start-3', 'x15_delayed-start-4', 'x16_seasonal-0', 'x17_seasonal-1', 'x18_seasonal-2', 
+'x19_seasonal-3', 'x20_seasonal-4', 'x21_on-off-0', 'x22_on-off-1', 'x23_on-off-2', 'x24_on-off-3', 'x30_on-off-9']
+Canais mediados:  ['x3_linear-2', 'x6_linear-5', 'x8_linear-7', 'x25_on-off-4', 'x26_on-off-5', 'x27_on-off-6', 'x29_on-off-8']
+Canais excluídos: ['x28_on-off-7']
+Runtime CD-NOTS:  345.0s
+ci_test_used: kci
+n_edges: 382
+runtime: 344.9794331840094
+
+Arestas canal→y detectadas:
+  x1_linear-0                    ✓
+  x2_linear-1                    ✓
+  x3_linear-2                    ✗
+  x4_linear-3                    ✓
+  x5_linear-4                    ✓
+  x6_linear-5                    ✗
+  x7_linear-6                    ✓
+  x8_linear-7                    ✗
+  x9_linear-8                    ✓
+  x10_linear-9                   ✓
+  x11_delayed-start-0            ✓
+  x12_delayed-start-1            ✓
+  x13_delayed-start-2            ✓
+  x14_delayed-start-3            ✓
+  x15_delayed-start-4            ✓
+  x16_seasonal-0                 ✓
+  x17_seasonal-1                 ✓
+  x18_seasonal-2                 ✓
+  x19_seasonal-3                 ✓
+  x20_seasonal-4                 ✓
+  x21_on-off-0                   ✓
+  x22_on-off-1                   ✓
+  x23_on-off-2                   ✓
+  x24_on-off-3                   ✓
+  x25_on-off-4                   ✗
+  x26_on-off-5                   ✗
+  x27_on-off-6                   ✗
+  x28_on-off-7                   ✗
+  x29_on-off-8                   ✗
+  x30_on-off-9                   ✓
+Configuração: 2 chains × 500 draws, tune=500, sampler=nutpie
+Checkpoints em: /home/ennes/mestrado/causalmmm_with_cdnots/notebooks/resultados/large_business/checkpoints
+─────────────────────────────────────────────────────────────── Braço 1: PyMC-Marketing Baseline ───────────────────────────────────────────────────────────────
+  Fitting PyMC-Marketing with nutpie, 2 chains, 500 draws, 500 tune steps
+WARNING:2026-04-13 00:01:47,864:jax._src.xla_bridge:969: An NVIDIA GPU may be present on this machine, but a CUDA-enabled jaxlib is not installed. Falling back to cpu.

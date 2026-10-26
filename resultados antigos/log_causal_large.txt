@@ -1,0 +1,33 @@
+2026-05-14 00:05:57.746585: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: SSE3 SSE4.1 SSE4.2 AVX AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+RESULTS_DIR: /home/ennes/mestrado/causalmmm_with_cdnots/notebooks/resultados
+Paths configurados.
+Imports principais OK
+CD-NOTS: módulos carregados via importlib (fallback)
+Meridian: disponível
+Preset: causal_large
+                                                                                
+  Dataset shape             208 rows × 46 columns                               
+  Effective modeling size   208 rows × 35 columns (time, geo, 22 channels, 10   
+                            controls, target)                                   
+  Regions                   ['national']                                        
+  Date range                2020-01-05 00:00:00 to 2023-12-24 00:00:00          
+  Channels                  22 channels: x1_TV, x2_OOH, x3_Radio...             
+  Controls                  10 controls                                         
+                                                                                
+RESULTS_DIR atualizado: 
+/home/ennes/mestrado/causalmmm_with_cdnots/notebooks/resultados/causal_large
+
+Canais: ['x1_TV', 'x2_OOH', 'x3_Radio', 'x4_Podcast', 'x5_Video', 
+'x6_Social-Paid', 'x7_Social-Organic', 'x8_Display', 'x9_Programmatic', 
+'x10_Native-Ads', 'x11_Paid-Search', 'x12_Brand-Search', 'x13_Shopping-Ads', 
+'x14_Retargeting', 'x15_Affiliate', 'x16_CTV', 'x17_Streaming-Audio', 
+'x18_Influencer', 'x19_Email', 'x20_Push-Notif', 'x21_Ghost-A', 'x22_Ghost-B']
+Controles: ['c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7', 'c8', 'c9', 'c10']
+Shape data_df: (208, 46)
+Shape truth_df: (208, 24)
+Arestas verdadeiras: 25 (todos os canais → y)
+────────────────────────── CD-NOTS: Descoberta Causal ──────────────────────────
+
+  CD-NOTS Discovery v2: 22 channels + 10 controls + y = 33 vars, 1/1 geos, 208 
+timepoints, CI: kci, alpha: 0.05, max_lag: 2
